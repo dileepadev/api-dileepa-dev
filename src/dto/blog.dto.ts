@@ -24,9 +24,9 @@ export class BlogDto {
   readonly excerpt: string;
 
   @ApiProperty({
-    description: 'Estimated read time for the blog post',
-    example: '5 min read',
+    description: 'The link to the blog post',
+    example: 'https://blog.dileepa.dev/680e72e34fd7c6eea2de7cd7',
   })
   @IsString()
-  readonly readTime: string;
+  readonly link: string;
 }

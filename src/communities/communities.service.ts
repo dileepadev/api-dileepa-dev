@@ -12,6 +12,10 @@ export class CommunitiesService {
   ) {}
 
   async findAll(): Promise<CommunityDto[]> {
-    return this.communityModel.find().exec();
+    return this.communityModel
+      .find()
+      .sort({ sortDate: -1 })
+      .select('-sortDate')
+      .exec();
   }
 }

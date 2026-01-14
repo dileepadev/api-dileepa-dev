@@ -9,9 +9,6 @@ export class Video {
   title: string;
 
   @Prop({ required: true })
-  views: string;
-
-  @Prop({ required: true })
   date: string;
 
   @Prop({ required: true })
