@@ -12,6 +12,10 @@ export class ExperiencesService {
   ) {}
 
   async findAll(): Promise<ExperienceDto[]> {
-    return this.experienceModel.find().exec();
+    return this.experienceModel
+      .find()
+      .sort({ sortDate: -1 })
+      .select('-sortDate')
+      .exec();
   }
 }

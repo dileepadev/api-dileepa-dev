@@ -12,6 +12,10 @@ export class EventsService {
   ) {}
 
   async findAll(): Promise<EventDto[]> {
-    return this.eventModel.find().exec();
+    return this.eventModel
+      .find()
+      .sort({ sortDate: -1 })
+      .select('-sortDate')
+      .exec();
   }
 }

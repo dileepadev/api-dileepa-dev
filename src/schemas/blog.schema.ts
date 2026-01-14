@@ -15,7 +15,7 @@ export class Blog {
   excerpt: string;
 
   @Prop({ required: true })
-  readTime: string;
+  link: string;
 }
 
 export const BlogSchema = SchemaFactory.createForClass(Blog);
