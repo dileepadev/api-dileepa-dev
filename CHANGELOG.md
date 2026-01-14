@@ -13,6 +13,18 @@ Changes are organized into the following categories:
 
 - Changes for the next release are available in development branches.
 
+## [1.1.0] - 2026-01-14
+
+- **Added:**
+
+  - Add social media and other relevant external links to the `/about` endpoint for better representation.
+
+- **Changed:**
+
+  - Update the `description` field in the `/about` endpoint to support an array of multiple descriptive entries, allowing for more detailed and modular content.
+  - Refactor the DTO (Data Transfer Object) structure to follow `camelCase` naming conventions for consistency with frontend standards.
+  - Update MongoDB queries to return data ordered by date for improved relevance.
+
 ## [1.0.0] - 2026-01-13
 
 ### Added
@@ -43,3 +55,4 @@ Changes are organized into the following categories:
 
 [Unreleased]: https://github.com/dileepadev/api-dileepa-dev/branches
 [1.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.0.0
+[1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.1.0

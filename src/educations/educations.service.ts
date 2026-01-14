@@ -12,6 +12,10 @@ export class EducationsService {
   ) {}
 
   async findAll(): Promise<EducationDto[]> {
-    return this.educationModel.find().exec();
+    return this.educationModel
+      .find()
+      .sort({ sortDate: -1 })
+      .select('-sortDate')
+      .exec();
   }
 }

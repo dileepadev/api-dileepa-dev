@@ -10,13 +10,6 @@ export class VideoDto {
   readonly title: string;
 
   @ApiProperty({
-    description: 'The view count of the video',
-    example: '136 views',
-  })
-  @IsString()
-  readonly views: string;
-
-  @ApiProperty({
     description: 'The publication date of the video',
     example: '2025-02-24',
   })
