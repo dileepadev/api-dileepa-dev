@@ -1,7 +1,7 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { VideosService } from './videos.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { VideoDto } from '../dto/video.dto';
+import { VideoDto } from './dto/video.dto';
 
 @ApiTags('Videos')
 @Controller('videos')

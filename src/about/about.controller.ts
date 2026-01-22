@@ -1,6 +1,6 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { AboutService } from './about.service';
-import { AboutDto } from '../dto/about.dto';
+import { AboutDto } from './dto/about.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('About')

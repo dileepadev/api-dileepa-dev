@@ -1,6 +1,6 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { EducationsService } from './educations.service';
-import { EducationDto } from '../dto/education.dto';
+import { EducationDto } from './dto/education.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Educations')

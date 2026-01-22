@@ -1,7 +1,7 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { BlogsService } from './blogs.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { BlogDto } from '../dto/blog.dto';
+import { BlogDto } from './dto/blog.dto';
 
 @ApiTags('Blogs')
 @Controller('blogs')

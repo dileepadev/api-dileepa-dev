@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ExperiencesController } from './experiences.controller';
 import { ExperiencesService } from './experiences.service';
-import { Experience, ExperienceSchema } from '../schemas/experience.schema';
+import { Experience, ExperienceSchema } from './schemas/experience.schema';
 
 @Module({
   imports: [

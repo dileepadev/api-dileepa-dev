@@ -13,6 +13,16 @@ Changes are organized into the following categories:
 
 - Changes for the next release are available in development branches.
 
+## [1.2.0] - 2026-01-22
+
+- **Changed:**
+
+  - Upgrade NestJS framework to the latest stable version.
+  - Refactor project structure: Moved DTOs and Schemas to feature modules with updated import paths.
+  - Standardize API error handling: Implemented global `ValidationPipe` and `HttpExceptionFilter`.
+  - Enforce stricter input validation and consistent error response formats.
+  - Remove deprecated `baseUrl` option from `tsconfig.json` to prepare for TypeScript 7.0.
+
 ## [1.1.0] - 2026-01-14
 
 - **Added:**
@@ -56,3 +66,4 @@ Changes are organized into the following categories:
 [Unreleased]: https://github.com/dileepadev/api-dileepa-dev/branches
 [1.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.0.0
 [1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.1.0
+[1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.0

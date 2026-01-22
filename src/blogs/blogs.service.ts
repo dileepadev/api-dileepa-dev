@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Blog, BlogDocument } from '../schemas/blog.schema';
-import { BlogDto } from 'src/dto/blog.dto';
+import { Blog, BlogDocument } from './schemas/blog.schema';
+import { BlogDto } from './dto/blog.dto';
 
 @Injectable()
 export class BlogsService {

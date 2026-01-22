@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { Video, VideoDocument } from '../schemas/video.schema';
-import { VideoDto } from 'src/dto/video.dto';
+import { Video, VideoDocument } from './schemas/video.schema';
+import { VideoDto } from './dto/video.dto';
 
 @Injectable()
 export class VideosService {

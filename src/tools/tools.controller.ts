@@ -1,6 +1,6 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { ToolsService } from './tools.service';
-import { ToolDto } from '../dto/tool.dto';
+import { ToolDto } from './dto/tool.dto';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
 @ApiTags('Tools')

@@ -1,7 +1,7 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { CommunitiesService } from './communities.service';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { CommunityDto } from '../dto/community.dto';
+import { CommunityDto } from './dto/community.dto';
 
 @ApiTags('Communities')
 @Controller('communities')

@@ -1,6 +1,6 @@
 import { Controller, Get, NotFoundException } from '@nestjs/common';
 import { ExperiencesService } from './experiences.service';
-import { ExperienceDto } from '../dto/experience.dto';
+import { ExperienceDto } from './dto/experience.dto';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('Experiences')
