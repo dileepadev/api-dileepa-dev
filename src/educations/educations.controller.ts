@@ -12,13 +12,22 @@ import { EducationsService } from './educations.service';
 import { EducationDto } from './dto/education.dto';
 import { CreateEducationDto } from './dto/create-education.dto';
 import { UpdateEducationDto } from './dto/update-education.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('Educations')
+@ApiTags('educations')
+@ApiBearerAuth('JWT-auth')
 @Controller('educations')
 export class EducationsController {
   constructor(private readonly educationsService: EducationsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new education entry' })
   @ApiResponse({
@@ -30,6 +39,7 @@ export class EducationsController {
     return this.educationsService.create(createEducationDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get all education entries',
@@ -51,6 +61,7 @@ export class EducationsController {
     return educations;
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific education entry' })
   @ApiResponse({
@@ -66,6 +77,7 @@ export class EducationsController {
     return this.educationsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a specific education entry' })
   @ApiResponse({
@@ -84,6 +96,7 @@ export class EducationsController {
     return this.educationsService.update(id, updateEducationDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a specific education entry' })
   @ApiResponse({

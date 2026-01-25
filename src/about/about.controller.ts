@@ -11,13 +11,22 @@ import { AboutService } from './about.service';
 import { AboutDto } from './dto/about.dto';
 import { CreateAboutDto } from './dto/create-about.dto';
 import { UpdateAboutDto } from './dto/update-about.dto';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('About')
+@ApiTags('about')
+@ApiBearerAuth('JWT-auth')
 @Controller('about')
 export class AboutController {
   constructor(private readonly aboutService: AboutService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create about information' })
   @ApiResponse({
@@ -29,6 +38,7 @@ export class AboutController {
     return this.aboutService.create(createAboutDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get information about the owner',
@@ -50,6 +60,7 @@ export class AboutController {
     return aboutInfo;
   }
 
+  @Roles('admin')
   @Patch()
   @ApiOperation({ summary: 'Update about information' })
   @ApiResponse({
@@ -65,6 +76,7 @@ export class AboutController {
     return this.aboutService.update(updateAboutDto);
   }
 
+  @Roles('admin')
   @Delete()
   @ApiOperation({ summary: 'Delete about information' })
   @ApiResponse({

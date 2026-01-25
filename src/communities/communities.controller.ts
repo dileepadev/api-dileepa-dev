@@ -9,16 +9,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { CommunitiesService } from './communities.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
 import { CommunityDto } from './dto/community.dto';
 import { CreateCommunityDto } from './dto/create-community.dto';
 import { UpdateCommunityDto } from './dto/update-community.dto';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('Communities')
+@ApiTags('communities')
+@ApiBearerAuth('JWT-auth')
 @Controller('communities')
 export class CommunitiesController {
   constructor(private readonly communitiesService: CommunitiesService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new community' })
   @ApiResponse({
@@ -30,6 +39,7 @@ export class CommunitiesController {
     return this.communitiesService.create(createCommunityDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get all communities',
@@ -51,6 +61,7 @@ export class CommunitiesController {
     return communities;
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific community' })
   @ApiResponse({
@@ -66,6 +77,7 @@ export class CommunitiesController {
     return this.communitiesService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a specific community' })
   @ApiResponse({
@@ -84,6 +96,7 @@ export class CommunitiesController {
     return this.communitiesService.update(id, updateCommunityDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a specific community' })
   @ApiResponse({

@@ -12,13 +12,22 @@ import { ToolsService } from './tools.service';
 import { ToolDto } from './dto/tool.dto';
 import { CreateToolDto } from './dto/create-tool.dto';
 import { UpdateToolDto } from './dto/update-tool.dto';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('Tools')
+@ApiTags('tools')
+@ApiBearerAuth('JWT-auth')
 @Controller('tools')
 export class ToolsController {
   constructor(private readonly toolsService: ToolsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new tool' })
   @ApiResponse({
@@ -30,6 +39,7 @@ export class ToolsController {
     return this.toolsService.create(createToolDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get all tools',
@@ -51,6 +61,7 @@ export class ToolsController {
     return tools;
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific tool' })
   @ApiResponse({
@@ -66,6 +77,7 @@ export class ToolsController {
     return this.toolsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a specific tool' })
   @ApiResponse({
@@ -81,6 +93,7 @@ export class ToolsController {
     return this.toolsService.update(id, updateToolDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a specific tool' })
   @ApiResponse({

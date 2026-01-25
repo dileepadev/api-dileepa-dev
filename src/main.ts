@@ -27,6 +27,17 @@ async function bootstrap() {
       'https://github.com/dileepadev/api-dileepa-dev/blob/main/LICENSE',
     )
     .setVersion('1.2.0')
+    .addBearerAuth(
+      {
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'JWT',
+        description: 'Enter JWT token',
+        in: 'header',
+      },
+      'JWT-auth',
+    )
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api', app, documentFactory);

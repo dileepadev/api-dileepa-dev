@@ -9,16 +9,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { BlogsService } from './blogs.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
 import { BlogDto } from './dto/blog.dto';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('Blogs')
+@ApiTags('blogs')
+@ApiBearerAuth('JWT-auth')
 @Controller('blogs')
 export class BlogsController {
   constructor(private readonly blogsService: BlogsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new blog post' })
   @ApiResponse({
@@ -30,6 +39,7 @@ export class BlogsController {
     return this.blogsService.create(createBlogDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get all blog posts',
@@ -51,6 +61,7 @@ export class BlogsController {
     return blogs;
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific blog post' })
   @ApiResponse({
@@ -66,6 +77,7 @@ export class BlogsController {
     return this.blogsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a specific blog post' })
   @ApiResponse({
@@ -81,6 +93,7 @@ export class BlogsController {
     return this.blogsService.update(id, updateBlogDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a specific blog post' })
   @ApiResponse({

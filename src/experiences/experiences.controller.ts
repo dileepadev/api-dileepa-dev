@@ -12,13 +12,22 @@ import { ExperiencesService } from './experiences.service';
 import { ExperienceDto } from './dto/experience.dto';
 import { CreateExperienceDto } from './dto/create-experience.dto';
 import { UpdateExperienceDto } from './dto/update-experience.dto';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('Experiences')
+@ApiTags('experiences')
+@ApiBearerAuth('JWT-auth')
 @Controller('experiences')
 export class ExperiencesController {
   constructor(private readonly experiencesService: ExperiencesService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new experience entry' })
   @ApiResponse({
@@ -30,6 +39,7 @@ export class ExperiencesController {
     return this.experiencesService.create(createExperienceDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get all experience entries',
@@ -51,6 +61,7 @@ export class ExperiencesController {
     return experiences;
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific experience entry' })
   @ApiResponse({
@@ -66,6 +77,7 @@ export class ExperiencesController {
     return this.experiencesService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a specific experience entry' })
   @ApiResponse({
@@ -84,6 +96,7 @@ export class ExperiencesController {
     return this.experiencesService.update(id, updateExperienceDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a specific experience entry' })
   @ApiResponse({

@@ -9,16 +9,25 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { EventsService } from './events.service';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiOperation,
+  ApiResponse,
+  ApiBearerAuth,
+  ApiTags,
+} from '@nestjs/swagger';
 import { EventDto } from './dto/event.dto';
 import { CreateEventDto } from './dto/create-event.dto';
 import { UpdateEventDto } from './dto/update-event.dto';
+import { Public } from '../auth/decorators/public.decorator';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-@ApiTags('Events')
+@ApiTags('events')
+@ApiBearerAuth('JWT-auth')
 @Controller('events')
 export class EventsController {
   constructor(private readonly eventsService: EventsService) {}
 
+  @Roles('admin')
   @Post()
   @ApiOperation({ summary: 'Create a new event' })
   @ApiResponse({
@@ -30,6 +39,7 @@ export class EventsController {
     return this.eventsService.create(createEventDto);
   }
 
+  @Public()
   @Get()
   @ApiOperation({
     summary: 'Get all events',
@@ -51,6 +61,7 @@ export class EventsController {
     return events;
   }
 
+  @Public()
   @Get(':id')
   @ApiOperation({ summary: 'Get a specific event' })
   @ApiResponse({
@@ -66,6 +77,7 @@ export class EventsController {
     return this.eventsService.findOne(id);
   }
 
+  @Roles('admin')
   @Patch(':id')
   @ApiOperation({ summary: 'Update a specific event' })
   @ApiResponse({
@@ -84,6 +96,7 @@ export class EventsController {
     return this.eventsService.update(id, updateEventDto);
   }
 
+  @Roles('admin')
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a specific event' })
   @ApiResponse({
