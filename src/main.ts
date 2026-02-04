@@ -31,6 +31,7 @@ async function bootstrap() {
   } catch (err) {
     console.warn('Could not read package.json for version:', err);
   }
+  const isDev = process.env.NODE_ENV !== 'production';
 
   const config = new DocumentBuilder()
     .setTitle('api.dileepa.dev')
@@ -56,29 +57,24 @@ async function bootstrap() {
     )
     .build();
 
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-
-  SwaggerModule.setup('api', app, documentFactory, {
-    customCssUrl: [
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.css',
-    ],
-    customJs: [
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-bundle.min.js',
-      'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.js',
-    ],
-  });
+  if (isDev) {
+    const documentFactory = () => SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api', app, documentFactory);
+    console.log('Swagger UI enabled at /api');
+  } else {
+    console.log('Swagger UI is disabled in production.');
+  }
 
   // Enable CORS for local development
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://localhost:3002',
-    ],
+    origin: isDev
+      ? [
+          'http://localhost:3000',
+          'http://localhost:3001',
+          'http://localhost:3002',
+        ]
+      : ['https://your-domain.com'],
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   await app.listen(process.env.PORT ?? 3000);

@@ -81,6 +81,9 @@ npm run start:prod
 
 ## API Documentation
 
+>[!IMPORTANT]
+> Swagger UI and JSON OpenAPI is disabled in production. It is only available in development mode.  
+
 - Swagger UI is available at [`/api`](http://localhost:3000/api) once the app is running. (e.g., `http://localhost:3000/api`)
 
 - JSON OpenAPI specification is available at [`/api-json`](http://localhost:3000/api-json). (e.g., `http://localhost:3000/api-json`)
