@@ -10,6 +10,7 @@ import { EventsModule } from './events/events.module';
 import { VideosModule } from './videos/videos.module';
 import { BlogsModule } from './blogs/blogs.module';
 import { CommunitiesModule } from './communities/communities.module';
+import { ContactModule } from './contact/contact.module';
 import { ToolsModule } from './tools/tools.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
@@ -48,6 +49,7 @@ import { RolesGuard } from './auth/guards/roles.guard';
     VideosModule,
     BlogsModule,
     CommunitiesModule,
+    ContactModule,
     ToolsModule,
   ],
   controllers: [AppController],
