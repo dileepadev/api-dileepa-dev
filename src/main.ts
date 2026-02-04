@@ -4,6 +4,8 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import helmet from 'helmet';
+import fs from 'fs';
+import path from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -19,6 +21,17 @@ async function bootstrap() {
   );
   app.useGlobalFilters(new HttpExceptionFilter());
 
+  const pkgJsonPath = path.resolve(process.cwd(), 'package.json');
+  let appVersion = '0.0.0';
+  try {
+    const pkg = JSON.parse(fs.readFileSync(pkgJsonPath, 'utf8')) as {
+      version?: string;
+    };
+    appVersion = pkg.version ?? appVersion;
+  } catch (err) {
+    console.warn('Could not read package.json for version:', err);
+  }
+
   const config = new DocumentBuilder()
     .setTitle('api.dileepa.dev')
     .setDescription(
@@ -29,7 +42,7 @@ async function bootstrap() {
       'MIT',
       'https://github.com/dileepadev/api-dileepa-dev/blob/main/LICENSE',
     )
-    .setVersion('1.2.0')
+    .setVersion(appVersion)
     .addBearerAuth(
       {
         type: 'http',
@@ -43,7 +56,7 @@ async function bootstrap() {
     )
     .build();
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  SwaggerModule.setup('docs', app, documentFactory);
 
   // Enable CORS for local development
   app.enableCors({
