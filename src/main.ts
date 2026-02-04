@@ -55,8 +55,10 @@ async function bootstrap() {
       'JWT-auth',
     )
     .build();
+
   const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, documentFactory, {
+
+  SwaggerModule.setup('api', app, documentFactory, {
     customCssUrl: [
       'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui.min.css',
       'https://cdnjs.cloudflare.com/ajax/libs/swagger-ui/4.15.5/swagger-ui-standalone-preset.min.css',
