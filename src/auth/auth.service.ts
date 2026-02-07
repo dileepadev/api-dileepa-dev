@@ -14,16 +14,31 @@ export class AuthService {
   async validateUser(
     email: string,
     pass: string,
-  ): Promise<{ userId: string; email: string; roles: string[] } | null> {
+  ): Promise<{ userId: string; email: string; roles: string[] }> {
     const user = await this.usersService.findOne(email);
-    if (user && (await bcrypt.compare(pass, user.passwordHash))) {
-      return {
-        userId: user._id.toString(),
-        email: user.email,
-        roles: user.roles,
-      };
+
+    if (!user) {
+      // No user with that email
+      throw new UnauthorizedException('User not found');
     }
-    return null;
+
+    if (user.isActive === false) {
+      // Account exists but is disabled
+      throw new UnauthorizedException('Account disabled');
+    }
+
+    const passwordMatches = await bcrypt.compare(pass, user.passwordHash);
+
+    if (!passwordMatches) {
+      // Wrong password
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    return {
+      userId: user._id.toString(),
+      email: user.email,
+      roles: user.roles,
+    };
   }
 
   login(user: { userId: string; email: string; roles: string[] }) {
@@ -34,10 +49,8 @@ export class AuthService {
   }
 
   async validateUserByCredentials(loginDto: LoginDto) {
+    // validateUser now throws specific UnauthorizedExceptions on failure
     const user = await this.validateUser(loginDto.email, loginDto.password);
-    if (!user) {
-      throw new UnauthorizedException();
-    }
     return this.login(user);
   }
 }
