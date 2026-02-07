@@ -23,6 +23,9 @@ export class Community {
   @Prop({ required: true })
   period: string;
 
+  @Prop()
+  communityUrl: string;
+
   @Prop({ required: true })
   description: string;
 

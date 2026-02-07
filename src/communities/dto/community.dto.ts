@@ -49,6 +49,15 @@ export class CommunityDto {
   readonly period: string;
 
   @ApiProperty({
+    description: 'The URL of the community',
+    example: 'https://nibmcs.org/',
+    required: false,
+  })
+  @IsOptional()
+  @IsUrl()
+  readonly communityUrl: string;
+
+  @ApiProperty({
     description: 'A description of the community involvement',
     example:
       'Led the society in organizing events, workshops, and meetups to foster…',
