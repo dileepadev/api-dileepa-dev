@@ -12,6 +12,7 @@ import { BlogsModule } from './blogs/blogs.module';
 import { CommunitiesModule } from './communities/communities.module';
 import { ContactModule } from './contact/contact.module';
 import { ToolsModule } from './tools/tools.module';
+import { UploadModule } from './upload/upload.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { APP_GUARD } from '@nestjs/core';
@@ -58,6 +59,7 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
     CommunitiesModule,
     ContactModule,
     ToolsModule,
+    UploadModule,
   ],
   controllers: [AppController],
   providers: [
