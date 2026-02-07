@@ -39,6 +39,10 @@ class Links {
 
   @Prop({ required: true })
   youtube: string;
+
+  // Optional Facebook URL
+  @Prop({ required: false })
+  facebook?: string;
 }
 
 const LinksSchema = SchemaFactory.createForClass(Links);

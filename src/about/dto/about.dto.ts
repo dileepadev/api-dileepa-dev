@@ -6,6 +6,7 @@ import {
   IsUrl,
   IsArray,
   IsEmail,
+  IsOptional,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -81,6 +82,15 @@ class LinksDto {
   })
   @IsUrl()
   readonly youtube: string;
+
+  @ApiProperty({
+    description: 'URL for the Facebook profile',
+    example: 'https://facebook.com/dileepadev',
+    required: false,
+  })
+  @IsUrl()
+  @IsOptional()
+  readonly facebook?: string;
 }
 
 export class AboutDto {
