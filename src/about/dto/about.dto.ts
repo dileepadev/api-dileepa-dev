@@ -38,6 +38,7 @@ class LinksDto {
     description: 'URL for the website',
     example: 'https://dileepa.dev',
   })
+  @IsOptional()
   @IsUrl()
   readonly website: string;
 
@@ -52,6 +53,7 @@ class LinksDto {
     description: 'URL for the GitHub profile',
     example: 'https://github.com/dileepadev',
   })
+  @IsOptional()
   @IsUrl()
   readonly github: string;
 
@@ -59,6 +61,7 @@ class LinksDto {
     description: 'URL for the LinkedIn profile',
     example: 'https://linkedin.com/in/dileepadev',
   })
+  @IsOptional()
   @IsUrl()
   readonly linkedin: string;
 
@@ -66,6 +69,7 @@ class LinksDto {
     description: 'URL for the X/Twitter profile',
     example: 'https://twitter.com/dileepadev',
   })
+  @IsOptional()
   @IsUrl()
   readonly xtwitter: string;
 
@@ -73,6 +77,7 @@ class LinksDto {
     description: 'URL for the Instagram profile',
     example: 'https://instagram.com/dileepadev',
   })
+  @IsOptional()
   @IsUrl()
   readonly instagram: string;
 
@@ -80,6 +85,7 @@ class LinksDto {
     description: 'URL for the YouTube channel',
     example: 'https://youtube.com/@dileepadev',
   })
+  @IsOptional()
   @IsUrl()
   readonly youtube: string;
 

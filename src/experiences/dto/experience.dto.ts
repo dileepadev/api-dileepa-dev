@@ -4,6 +4,7 @@ import {
   IsArray,
   ArrayNotEmpty,
   ValidateNested,
+  IsOptional,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -45,6 +46,7 @@ export class ExperienceDto {
     description: 'Optional URL for the company.',
     example: 'https://randomsoftware.net',
   })
+  @IsOptional()
   @IsUrl()
   readonly url?: string;
 

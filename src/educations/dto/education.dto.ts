@@ -1,4 +1,4 @@
-import { IsString, IsUrl, ValidateNested } from 'class-validator';
+import { IsString, IsUrl, ValidateNested, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -53,6 +53,7 @@ export class EducationDto {
     description: 'Optional URL for the institution or course.',
     example: 'https://nibm.lk',
   })
+  @IsOptional()
   @IsUrl()
   readonly url?: string;
 
