@@ -14,6 +14,9 @@ export class Blog {
   @Prop({ required: true })
   excerpt: string;
 
+  @Prop({ required: false, default: 0 })
+  index: number;
+
   @Prop({ required: true })
   link: string;
 }

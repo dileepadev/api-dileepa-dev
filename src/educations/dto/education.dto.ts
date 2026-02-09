@@ -1,4 +1,10 @@
-import { IsString, IsUrl, ValidateNested, IsOptional } from 'class-validator';
+import {
+  IsString,
+  IsUrl,
+  ValidateNested,
+  IsNumber,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -21,6 +27,13 @@ class LogoDto {
 }
 
 export class EducationDto {
+  @ApiProperty({
+    description: 'Priority index for sorting',
+    example: 1,
+  })
+  @IsNumber()
+  readonly index: number;
+
   @ApiProperty({
     description: 'The name of the course or degree.',
     example: 'BSc (Hons) in Computing',

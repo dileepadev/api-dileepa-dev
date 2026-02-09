@@ -19,11 +19,7 @@ export class VideosService {
   }
 
   async findAll(): Promise<VideoDto[]> {
-    return this.videoModel
-      .find()
-      .sort({ sortDate: -1 })
-      .select('-sortDate')
-      .exec();
+    return this.videoModel.find().sort({ index: -1 }).exec();
   }
 
   async findOne(id: string): Promise<Video> {

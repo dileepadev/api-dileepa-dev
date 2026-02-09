@@ -17,6 +17,9 @@ export class Tool {
   @Prop({ required: true, unique: true })
   name: string;
 
+  @Prop({ required: false, default: 0 })
+  index: number;
+
   @Prop({ type: Logo, required: true })
   logo: Logo;
 }

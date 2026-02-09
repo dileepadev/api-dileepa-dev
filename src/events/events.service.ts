@@ -19,11 +19,7 @@ export class EventsService {
   }
 
   async findAll(): Promise<EventDto[]> {
-    return this.eventModel
-      .find()
-      .sort({ sortDate: -1 })
-      .select('-sortDate')
-      .exec();
+    return this.eventModel.find().sort({ index: -1 }).exec();
   }
 
   async findOne(id: string): Promise<Event> {

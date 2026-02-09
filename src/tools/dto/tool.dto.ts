@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, IsUrl, ValidateNested } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsUrl,
+  ValidateNested,
+  IsNumber,
+  IsOptional,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 
@@ -19,6 +26,10 @@ class LogoDto {
 }
 
 export class ToolDto {
+  @ApiProperty({ description: 'Priority index for sorting', example: 1 })
+  @IsNumber()
+  readonly index: number;
+
   @ApiProperty({
     description: 'The name of the tool or technology.',
     example: 'Python',

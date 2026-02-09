@@ -19,7 +19,7 @@ export class ToolsService {
   }
 
   async findAll(): Promise<ToolDto[]> {
-    return this.toolModel.find().exec();
+    return this.toolModel.find().sort({ index: -1 }).exec();
   }
 
   async findOne(id: string): Promise<Tool> {

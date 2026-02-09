@@ -4,6 +4,7 @@ import {
   IsArray,
   ArrayNotEmpty,
   ValidateNested,
+  IsNumber,
   IsOptional,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
@@ -28,6 +29,10 @@ class LogoDto {
 }
 
 export class ExperienceDto {
+  @ApiProperty({ description: 'Priority index for sorting', example: 1 })
+  @IsNumber()
+  readonly index: number;
+
   @ApiProperty({
     description: 'The job title.',
     example: 'Associate AI Engineer',

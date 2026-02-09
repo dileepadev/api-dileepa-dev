@@ -29,6 +29,9 @@ export class Education {
   @Prop({ required: true })
   url: string;
 
+  @Prop({ required: false, default: 0 })
+  index: number;
+
   @Prop({ type: Logo, required: true })
   logo: Logo;
 }

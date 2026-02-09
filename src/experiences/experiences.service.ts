@@ -19,11 +19,7 @@ export class ExperiencesService {
   }
 
   async findAll(): Promise<ExperienceDto[]> {
-    return this.experienceModel
-      .find()
-      .sort({ sortDate: -1 })
-      .select('-sortDate')
-      .exec();
+    return this.experienceModel.find().sort({ index: -1 }).exec();
   }
 
   async findOne(id: string): Promise<Experience> {

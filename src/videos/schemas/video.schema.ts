@@ -14,6 +14,9 @@ export class Video {
   @Prop({ required: true })
   link: string;
 
+  @Prop({ required: false, default: 0 })
+  index: number;
+
   @Prop({ required: true })
   thumbnail: string;
 }

@@ -19,6 +19,9 @@ export class Event {
 
   @Prop({ required: true })
   description: string;
+
+  @Prop({ required: false, default: 0 })
+  index: number;
 }
 
 export const EventSchema = SchemaFactory.createForClass(Event);

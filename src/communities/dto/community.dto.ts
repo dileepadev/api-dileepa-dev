@@ -4,6 +4,7 @@ import {
   IsOptional,
   ValidateNested,
   IsUrl,
+  IsNumber,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -27,6 +28,10 @@ class LogoDto {
 }
 
 export class CommunityDto {
+  @ApiProperty({ description: 'Priority index for sorting', example: 1 })
+  @IsNumber()
+  readonly index: number;
+
   @ApiProperty({
     description: 'The name of the community',
     example: 'NIBM Computer Society',

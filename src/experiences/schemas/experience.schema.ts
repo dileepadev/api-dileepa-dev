@@ -32,6 +32,9 @@ export class Experience {
   @Prop({ type: [String], required: true })
   technologies: string[];
 
+  @Prop({ required: false, default: 0 })
+  index: number;
+
   @Prop({ type: Logo, required: true })
   logo: Logo;
 }

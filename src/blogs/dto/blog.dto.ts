@@ -1,7 +1,14 @@
-import { IsString } from 'class-validator';
+import { IsString, IsNumber, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class BlogDto {
+  @ApiProperty({
+    description: 'Priority index for sorting',
+    example: 1,
+  })
+  @IsNumber()
+  readonly index: number;
+
   @ApiProperty({
     description: 'The title of the blog post',
     example: 'Introduction to Artificial Intelligence',

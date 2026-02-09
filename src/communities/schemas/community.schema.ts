@@ -29,6 +29,9 @@ export class Community {
   @Prop({ required: true })
   description: string;
 
+  @Prop({ required: false, default: 0 })
+  index: number;
+
   @Prop({ type: Logo, required: true })
   logo: Logo;
 
