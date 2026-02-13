@@ -19,6 +19,9 @@ export class Blog {
 
   @Prop({ required: true })
   link: string;
+
+  @Prop({ required: true })
+  bannerUrl: string;
 }
 
 export const BlogSchema = SchemaFactory.createForClass(Blog);

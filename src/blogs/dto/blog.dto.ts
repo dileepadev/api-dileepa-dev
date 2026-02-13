@@ -36,4 +36,13 @@ export class BlogDto {
   })
   @IsString()
   readonly link: string;
+
+  @ApiProperty({
+    description: 'URL to the banner image for the blog post',
+    example:
+      'https://dileepadev.blob.core.windows.net/images/banners/2026-01-30-welcome.png',
+    required: true,
+  })
+  @IsString()
+  readonly bannerUrl: string;
 }
