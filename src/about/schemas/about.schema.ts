@@ -61,6 +61,9 @@ export class About {
   @Prop({ required: true, type: [String] })
   description: string[];
 
+  @Prop({ required: true })
+  status: string;
+
   @Prop({ type: ImagesSchema, required: true })
   images: Images;
 

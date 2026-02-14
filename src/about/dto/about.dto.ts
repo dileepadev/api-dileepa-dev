@@ -135,6 +135,13 @@ export class AboutDto {
   readonly description: string[];
 
   @ApiProperty({
+    description: 'The current status of the person',
+    example: 'Open to work',
+  })
+  @IsString()
+  readonly status: string;
+
+  @ApiProperty({
     description: 'URLs for profile and banner images',
     type: ImagesDto,
   })
