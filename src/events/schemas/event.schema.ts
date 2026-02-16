@@ -20,6 +20,9 @@ export class Event {
   @Prop({ required: true })
   description: string;
 
+  @Prop({ required: true })
+  url: string;
+
   @Prop({ required: false, default: 0 })
   index: number;
 }

@@ -44,4 +44,12 @@ export class EventDto {
   })
   @IsString()
   readonly description: string;
+
+  @ApiProperty({
+    description: 'The URL of the event',
+    example: 'https://example.com',
+    required: true,
+  })
+  @IsString()
+  readonly url: string;
 }
