@@ -19,7 +19,7 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
   - [Security](#security)
   - [License](#license)
   - [API Endpoints](#api-endpoints)
-  - [Deployment on Azure](#deployment-on-azure)
+  - [Deployment on Vercel](#deployment-on-vercel)
   - [Contact](#contact)
 
 ## Tools and Technologies
@@ -135,9 +135,9 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file.
 | `/communities`| Tech communities I've volunteered with.               |
 | `/tools`      | Lists the tools, frameworks, and technologies I use.  |
 
-## Deployment on Azure
+## Deployment on Vercel
 
-This project is designed for deployment on Azure App Service and uses Azure Blob Storage for image hosting. For deployment instructions, see the [official Azure documentation](https://docs.microsoft.com/en-us/azure/app-service/quickstart-nodejs?tabs=windows).
+This project is designed for deployment on Vercel and uses Vercel's serverless functions for API hosting. For deployment instructions, see the [official Vercel documentation](https://vercel.com/docs).
 
 ## Contact
 
