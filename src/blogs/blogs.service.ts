@@ -54,8 +54,16 @@ export class BlogsService {
    * Used by CI/CD pipelines (e.g., GitHub Actions) to sync blog metadata.
    */
   async upsertBySlug(createBlogDto: CreateBlogDto): Promise<Blog> {
+    // Match by slug first, then fallback to link for legacy entries without slug
+    const filter = {
+      $or: [
+        { slug: createBlogDto.slug },
+        { link: createBlogDto.link, slug: { $exists: false } },
+      ],
+    };
+
     const existing = await this.blogModel
-      .findOneAndUpdate({ slug: createBlogDto.slug }, createBlogDto, {
+      .findOneAndUpdate(filter, createBlogDto, {
         new: true,
         upsert: true,
         setDefaultsOnInsert: true,
