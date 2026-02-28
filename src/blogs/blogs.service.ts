@@ -47,4 +47,20 @@ export class BlogsService {
     }
     return deletedBlog;
   }
+
+  /**
+   * Upsert a blog post by slug.
+   * If a blog with the given slug exists, update it; otherwise, create a new one.
+   * Used by CI/CD pipelines (e.g., GitHub Actions) to sync blog metadata.
+   */
+  async upsertBySlug(createBlogDto: CreateBlogDto): Promise<Blog> {
+    const existing = await this.blogModel
+      .findOneAndUpdate({ slug: createBlogDto.slug }, createBlogDto, {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      })
+      .exec();
+    return existing;
+  }
 }

@@ -7,6 +7,7 @@ import {
   Param,
   Delete,
   NotFoundException,
+  UseGuards,
 } from '@nestjs/common';
 import { BlogsService } from './blogs.service';
 import {
@@ -14,12 +15,14 @@ import {
   ApiResponse,
   ApiBearerAuth,
   ApiTags,
+  ApiHeader,
 } from '@nestjs/swagger';
 import { BlogDto } from './dto/blog.dto';
 import { CreateBlogDto } from './dto/create-blog.dto';
 import { UpdateBlogDto } from './dto/update-blog.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { Roles } from '../auth/decorators/roles.decorator';
+import { ApiKeyGuard } from '../auth/guards/api-key.guard';
 
 @ApiTags('blogs')
 @ApiBearerAuth('JWT-auth')
@@ -107,5 +110,32 @@ export class BlogsController {
   })
   async remove(@Param('id') id: string) {
     return this.blogsService.remove(id);
+  }
+
+  @Public()
+  @UseGuards(ApiKeyGuard)
+  @Post('sync')
+  @ApiOperation({
+    summary: 'Sync a blog post from CI/CD pipeline',
+    description:
+      'Upserts a blog post by slug. Authenticated via x-api-key header. ' +
+      'Used by GitHub Actions to automatically sync blog metadata after deployment.',
+  })
+  @ApiHeader({
+    name: 'x-api-key',
+    description: 'Static API key for CI/CD authentication',
+    required: true,
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'The blog post has been synced (created or updated).',
+    type: BlogDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or missing API key.',
+  })
+  async sync(@Body() createBlogDto: CreateBlogDto) {
+    return this.blogsService.upsertBySlug(createBlogDto);
   }
 }

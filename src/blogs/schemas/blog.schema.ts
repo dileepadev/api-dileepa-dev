@@ -5,23 +5,26 @@ export type BlogDocument = Blog & Document;
 
 @Schema()
 export class Blog {
-  @Prop({ required: true })
-  title: string;
+  @Prop({ required: true, unique: true })
+  slug!: string;
 
   @Prop({ required: true })
-  date: string;
+  title!: string;
 
   @Prop({ required: true })
-  excerpt: string;
+  date!: string;
+
+  @Prop({ required: true })
+  excerpt!: string;
 
   @Prop({ required: false, default: 0 })
-  index: number;
+  index!: number;
 
   @Prop({ required: true })
-  link: string;
+  link!: string;
 
   @Prop({ required: true })
-  bannerUrl: string;
+  bannerUrl!: string;
 }
 
 export const BlogSchema = SchemaFactory.createForClass(Blog);
