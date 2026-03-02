@@ -13,21 +13,44 @@ Changes are organized into the following categories:
 
 - Changes for the next release are available in development branches.
 
+## [1.2.0] - 2026-03-02
+
+### Added - v1.2.0
+
+- Introduce full CRUD operations (POST, PUT/PATCH, DELETE) across all feature modules.
+- Implement JWT-based authentication infrastructure.
+- Add authorization guards and Role-Based Access Control (RBAC) to secure non-public endpoints.
+- Add image upload support for all relevant POST operations.
+- Implement email support endpoints.
+- Add blog synchronization endpoint protected by API key authentication.
+- Implement a `priority` index to documents for custom sorting.
+- Add support for loading Swagger UI assets from CDN to facilitate Vercel deployments.
+- Configure project for deployment on Vercel.
+
+### Changed - v1.2.0
+
+- Upgrade NestJS framework to the latest stable version.
+- Refactor project structure: Moved DTOs and Schemas to feature modules with updated import paths.
+- Improve module, controller, and service organization following NestJS best practices.
+- Standardize API error handling: Implemented global `ValidationPipe` and `HttpExceptionFilter`.
+- Enforce stricter input validation and consistent error response formats.
+- Remove deprecated `baseUrl` option from `tsconfig.json` to prepare for TypeScript 7.0.
+
 ## [1.1.0] - 2026-01-14
 
-- **Added:**
+### Added - v1.1.0
 
-  - Add social media and other relevant external links to the `/about` endpoint for better representation.
+- Add social media and other relevant external links to the `/about` endpoint for better representation.
 
-- **Changed:**
+### Changed - v1.1.0
 
-  - Update the `description` field in the `/about` endpoint to support an array of multiple descriptive entries, allowing for more detailed and modular content.
-  - Refactor the DTO (Data Transfer Object) structure to follow `camelCase` naming conventions for consistency with frontend standards.
-  - Update MongoDB queries to return data ordered by date for improved relevance.
+- Update the `description` field in the `/about` endpoint to support an array of multiple descriptive entries, allowing for more detailed and modular content.
+- Refactor the DTO (Data Transfer Object) structure to follow `camelCase` naming conventions for consistency with frontend standards.
+- Update MongoDB queries to return data ordered by date for improved relevance.
 
 ## [1.0.0] - 2026-01-13
 
-### Added
+### Added - v1.0.0
 
 - Set up initial project structure using [NestJS](https://nestjs.com/) and [TypeScript](https://www.typescriptlang.org/) running on [Node.js](https://nodejs.org/).
 - Built and tested the following RESTful API endpoints:
@@ -56,3 +79,4 @@ Changes are organized into the following categories:
 [Unreleased]: https://github.com/dileepadev/api-dileepa-dev/branches
 [1.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.0.0
 [1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.1.0
+[1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.0
