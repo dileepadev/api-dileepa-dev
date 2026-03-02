@@ -32,9 +32,11 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
 - **Formatting:** [Prettier](https://prettier.io/)
 - **Version Control:** [Git](https://git-scm.com/)
 - **Database:** [MongoDB](https://www.mongodb.com/) (using [Mongoose](https://mongoosejs.com/))
-- **Deployment:** [Azure App Service](https://azure.microsoft.com/en-us/services/app-service/)
+- **Deployment:** [Vercel](https://vercel.com/) (Serverless Functions)
+- **Authentication:** [JWT](https://jwt.io/) (JSON Web Tokens) with Passport.js
+- **Authorization:** Role-Based Access Control (RBAC) with custom Guards
 - **Image Hosting:** [Azure Blob Storage](https://azure.microsoft.com/en-us/services/storage/blobs/)
-- **Documentation:** [Swagger](https://swagger.io/) (using [Swagger UI](https://swagger.io/tools/swagger-ui/))
+- **Documentation:** [Swagger](https://swagger.io/) (distributed via CDN for serverless compatibility)
 
 ## Installation
 
@@ -124,16 +126,22 @@ This project is licensed under the terms of the [LICENSE](LICENSE) file.
 
 ## API Endpoints
 
+The API supports full **CRUD** operations for authorized users. Public data is accessible via `GET` requests.
+
 | Endpoint      | Description                                           |
 |---------------|-------------------------------------------------------|
+| `/auth`       | Authentication endpoints (Login, Refresh, Profile).   |
 | `/about`      | Provides general profile information about me.        |
 | `/experiences`| Returns a list of my professional work experiences.   |
 | `/educations` | Displays my academic background, including degrees.   |
 | `/events`     | Lists upcoming and past events, talks, or appearances.|
 | `/videos`     | Links to video content such as talks or tutorials.    |
 | `/blogs`      | Returns metadata or summaries of blog posts.          |
+| `/sync`       | Blog synchronization endpoint (API Key required).     |
 | `/communities`| Tech communities I've volunteered with.               |
 | `/tools`      | Lists the tools, frameworks, and technologies I use.  |
+| `/mail`       | Email support and contact form endpoints.             |
+| `/uploads`    | Image and asset upload endpoints.                     |
 
 ## Deployment on Vercel
 
