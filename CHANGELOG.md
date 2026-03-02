@@ -19,7 +19,7 @@ Changes are organized into the following categories:
 
 - Fix contact form CORS failure: add configurable `CORS_ORIGINS` environment variable and refactor `src/main.ts` to parse and use it with `app.enableCors`. Preserves localhost dev origins and falls back to production domains. (refs #10)
 - Add `CORS_ORIGINS` to `.env.example` and document required production origin(s).
-- Resolve 21 npm audit security vulnerabilities (including ReDoS and RCE risks) by adding safe `overrides` for transitive dependencies: `test-exclude`, `minimatch`, `multer`, `serialize-javascript`, and `ajv` in `package.json`. (refs #15)
+- Resolve 21 npm audit security vulnerabilities (including ReDoS and RCE risks) by adding safe `overrides` for transitive dependencies: `test-exclude`, `minimatch`, `multer`, `serialize-javascript`, and `ajv` in `package.json`. (refs #10)
 - Verify test suite pass rate remains 100% after dependency adjustments.
 
 ## [1.2.0] - 2026-03-02
@@ -89,3 +89,4 @@ Changes are organized into the following categories:
 [1.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.0.0
 [1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.1.0
 [1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.0
+[1.2.1]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.1
