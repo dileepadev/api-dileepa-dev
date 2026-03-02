@@ -65,15 +65,19 @@ async function bootstrap() {
     console.log('Swagger UI is disabled in production.');
   }
 
-  // Enable CORS for local development
+  // Enable CORS
+  const corsOrigins = process.env.CORS_ORIGINS?.split(',') || [];
   app.enableCors({
     origin: isDev
       ? [
           'http://localhost:3000',
           'http://localhost:3001',
           'http://localhost:3002',
+          ...corsOrigins,
         ]
-      : ['https://your-domain.com'],
+      : corsOrigins.length > 0
+        ? corsOrigins
+        : ['https://dileepa.dev', 'https://www.dileepa.dev'],
     credentials: true,
   });
 

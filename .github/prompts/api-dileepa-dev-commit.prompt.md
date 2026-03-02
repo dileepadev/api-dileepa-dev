@@ -1,8 +1,8 @@
 ---
-agent: "agent"
+agent: 'agent'
 model: GPT-5 mini (copilot)
-tools: ["execute", "read", "search"]
-description: "Generate a new commit message based on the provided code changes."
+tools: ['execute', 'read', 'search']
+description: 'Generate a new commit message based on the provided code changes.'
 ---
 
 Your goal is to generate the most appropriate and effective commit message based on the provided code changes.
@@ -19,4 +19,4 @@ Commit messages should be written clearly and consistently, following the projec
   - For **a single file**, describe the exact modification.
 - Include **code snippets or terminal commands in Zsh format** where indicated by the template.
 - **Consistency is key**: ensure every commit follows the template to keep project history clear and uniform.
-- Current references for the commit message: refs #7
+- Current references for the commit message: refs #10
