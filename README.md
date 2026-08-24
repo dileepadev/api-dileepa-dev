@@ -47,7 +47,7 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
 - **Authorization:** Role-based access control through FastAPI dependencies
 - **Image Hosting:** [Cloudinary](https://cloudinary.com/)
 - **Rate Limiting:** [SlowAPI](https://slowapi.readthedocs.io/)
-- **Documentation:** OpenAPI, with Swagger UI and ReDoc served in development only
+- **Documentation:** OpenAPI, rendered by [Scalar](https://scalar.com/) in development only
 
 ## Installation
 
@@ -120,11 +120,17 @@ uv run python -m scripts.create_user --email owner@dileepa.dev --apply
 ## API Documentation
 
 >[!IMPORTANT]
-> Swagger UI and JSON OpenAPI is disabled in production. It is only available in development mode.  
+> The reference and the OpenAPI JSON are both disabled in production. They are
+> only available in development.
 
-- Swagger UI at [`/api`](http://localhost:8000/api)
-- ReDoc at [`/api/redoc`](http://localhost:8000/api/redoc)
+- API reference at [`/docs`](http://localhost:8000/docs), rendered by
+  [Scalar](https://scalar.com/)
 - OpenAPI JSON at [`/api-json`](http://localhost:8000/api-json)
+
+Scalar replaces Swagger UI and ReDoc, which are both switched off. It loads its
+bundle from a CDN, so `/docs` is served with its own Content-Security-Policy
+allowing exactly that origin — the rest of the API keeps `default-src 'none'`.
+Pin a different bundle with `SCALAR_JS_URL` if the CDN is not acceptable.
 
 The generated spec is the machine-readable version of
 [`api-contract.md`](https://github.com/dileepadev/dileepadev/blob/main/docs/architecture/api-contract.md).
@@ -197,6 +203,8 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `POST /contact` | ✓ | — | Rate-limited harder than anything else |
 | `GET /health` | ✓ | — | 503 when MongoDB is unreachable |
 | `GET /version` | ✓ | — | |
+| `GET /` | ✓ | — | What this service is, and where the docs are |
+| `GET /docs` | ✓ | — | The API reference. **Development only** |
 
 Every collection also takes `PATCH /{resource}/order` for bulk reordering, and
 `POST` / `PATCH /{id}` / `DELETE /{id}` for admin writes. `PATCH` is a partial

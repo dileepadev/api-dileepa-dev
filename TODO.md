@@ -155,9 +155,11 @@ Scripts are written and default to dry-run. Running them against the live cluste
 ### Documentation and release
 
 - [x] OpenAPI metadata — title, description, tags, contact, licence; docs disabled in production
+- [x] Render the reference with **Scalar** at `/docs`; Swagger UI and ReDoc off. Neither the
+      page nor `/api-json` is registered in production
 - [x] Publish the OpenAPI spec so both frontends can generate typed clients — CI uploads
       `openapi.json` on every build
-- [ ] Brand Swagger and ReDoc
+- [ ] Theme Scalar against the brand tokens
 - [x] Fix the `README.md` endpoint table
 - [x] `CHANGELOG.md`; version → `2.0.0` in `pyproject.toml`, which `/version` reads
 - [ ] `VERSIONING.md` review

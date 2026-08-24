@@ -63,8 +63,14 @@ verified against FastAPI in production and a rollback window has passed.
   been unmaintained since 2020 and breaks against bcrypt 4.1 and later. Existing
   Node `bcrypt` hashes validate unchanged and are rewritten to argon2id on the
   next successful sign-in. **No password reset is required.**
-- Interactive docs move to `/api` (Swagger UI), `/api/redoc` and `/api-json`,
-  still disabled in production.
+- **The API reference is rendered by [Scalar](https://scalar.com/) at `/docs`**, replacing
+  Swagger UI and ReDoc, which are both switched off. In production neither the
+  page nor the OpenAPI JSON at `/api-json` is registered, so the reference
+  cannot be reached and the spec it reads is not served — the v1 posture, kept.
+  `/docs` is served with its own Content-Security-Policy allowing exactly the
+  Scalar CDN; the rest of the API keeps `default-src 'none'`.
+- `GET /` returns `{ name, version, docs, website }` rather than the string
+  `Hello World!`. `docs` is null in production rather than a dead link.
 
 #### Removed - v2.0.0
 

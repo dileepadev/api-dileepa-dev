@@ -71,7 +71,7 @@ others do not — do not add a flag to the factory.
 - Node + npm. `npm install`, then `npm run start:dev` (watch mode, port 3000).
 - `npm run build` · `npm run start:prod` · `npm run lint` · `npm run test`
 - Swagger UI at `/api`, OpenAPI JSON at `/api-json` — **development only**, disabled in
-  production. Keep it that way.
+  production. Keep it that way. (FastAPI serves the reference at `/docs` instead; see below.)
 - `.env` from `.env.example`.
 
 **Target (FastAPI, v2.0.0):**
@@ -81,6 +81,9 @@ others do not — do not add a flag to the factory.
   `uv run fastapi run` to serve.
 - FastAPI **0.141.x**, Pydantic **2.13.x**, Uvicorn **0.52.x**.
 - Passwords are hashed with **`pwdlib`**, not `passlib` — see Gotchas.
+- The API reference is rendered by **Scalar** at `/docs`; Swagger UI and ReDoc are both off.
+  The reference and the OpenAPI JSON at `/api-json` are **development only** — in production
+  neither is registered, so the page cannot be reached and the spec it reads is not served.
 - `ruff` for lint and format, `mypy` for types, `pytest` + `httpx` for tests.
 - Async MongoDB driver against the **same cluster and the same collections**. No re-seed.
 
@@ -182,8 +185,9 @@ are verified against FastAPI in production and a rollback window has passed.
   blog image migration replaces separately.
 - **Only `blogs` has a `slug`.** Nothing else has a stable public identifier. New resources
   (`projects`, `sessions`) must have one, unique and indexed.
-- **Vercel's Python runtime may not fit.** Cold starts, bundle size, and the current
-  CDN-served-Swagger workaround may not translate. Evaluate against a container host early —
-  the answer changes deployment docs in every repo.
+- **The docs page has its own Content-Security-Policy.** Scalar loads its bundle from a CDN,
+  and the API-wide `default-src 'none'` blanks the page. `_docs_csp()` in
+  `app/core/rate_limit.py` allows exactly that one origin — do not "fix" a blank docs page by
+  exempting the path from CSP altogether.
 - **`/events` must survive as a deprecated alias** through v2.0.0, with `Deprecation` and
   `Sunset` headers. Remove it in v2.1.0, not before.
