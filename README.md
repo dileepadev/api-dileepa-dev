@@ -14,11 +14,13 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
   - [Table of Contents](#table-of-contents)
   - [Tools and Technologies](#tools-and-technologies)
   - [Installation](#installation)
+  - [Environments](#environments)
   - [Running the App](#running-the-app)
     - [Development](#development)
     - [Production](#production)
     - [Scripts](#scripts)
   - [API Documentation](#api-documentation)
+  - [HTTP request files](#http-request-files)
   - [Testing](#testing)
   - [Versioning](#versioning)
   - [Contributing](#contributing)
@@ -67,12 +69,58 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
 
    Never `pip install` into this project — it would bypass the lockfile.
 
-3. Copy the example environment file and update it with your configuration:
+3. Copy the template for the environment you are working in and fill it in:
 
    ```bash
-   cp .env.example .env
-   # Then edit .env as needed
+   cp .env.development.example .env.development
    ```
+
+   Real `.env.*` files are gitignored. See [Environments](#environments).
+
+## Environments
+
+Every environment has its own file, and **only one of them is ever read**.
+`ENVIRONMENT` names it:
+
+| `ENVIRONMENT` | File read | Template (committed) |
+| --- | --- | --- |
+| `development` (default) | `.env.development` | `.env.development.example` |
+| `production` | `.env.production` | `.env.production.example` |
+| `staging` | `.env.staging` | — |
+
+Nothing merges. Each file is complete on its own, so the value in front of you
+is the value in effect — there is no second file quietly overriding it and no
+precedence order to remember. Values shared between environments are duplicated
+across the files on purpose: that duplication is the price of never having to
+work out which file won.
+
+Real environment variables still beat the file, so exporting one for a single
+command is always the last word:
+
+```bash
+MONGODB_DB=scratch uv run fastapi dev
+ENVIRONMENT=production uv run fastapi run
+```
+
+`ENVIRONMENT` is the one value that has to come from the process environment,
+because it is what chooses the file. Setting it to one thing in the file and
+exporting another makes the app refuse to start rather than load the wrong
+cluster's credentials.
+
+> [!NOTE]
+> A plain `.env` is not read by anything. If you have one from an earlier
+> layout, copy it to `.env.development` and delete it.
+
+**The production deployment reads none of these files.** FastAPI Cloud holds its
+own configuration, set with `fastapi cloud env set` and `--secret`. These files
+are a local-development convenience; `.env.production` is for rehearsing a
+release on your own machine.
+
+Production is also checked at startup. The app refuses to boot with a
+placeholder `JWT_SECRET`, a localhost database, a wildcard `CORS_ORIGINS`, or an
+empty `BLOG_SYNC_API_KEY`, and logs a warning for a short signing secret or a
+missing Resend or Cloudinary credential. See
+[`app/core/config.py`](app/core/config.py).
 
 ## Running the App
 
@@ -84,7 +132,10 @@ Run through the FastAPI CLI, not `uvicorn` directly.
 uv run fastapi dev
 ```
 
-The application will be available at `http://localhost:8000` (or the configured port in `.env`).
+The application will be available at `http://localhost:8000` (or the configured
+`PORT`). It reads `.env.development` and nothing else, and the startup line
+names the environment and the database it connected to — worth reading before
+you assume which data you are looking at.
 
 ### Production
 
@@ -92,11 +143,31 @@ The application will be available at `http://localhost:8000` (or the configured 
 uv run fastapi run
 ```
 
+To run production mode locally, fill in `.env.production` and export the
+environment so that file is the one loaded:
+
+```bash
+ENVIRONMENT=production uv run fastapi run
+```
+
 ### Scripts
 
 Migration and operations scripts live in [`scripts/`](scripts). Every one that
 writes takes `--apply`; without it they report what they would do and change
 nothing.
+
+Each run prints the environment and the database it is about to open before it
+touches anything:
+
+```text
+  ENVIRONMENT  production
+  DATABASE     cluster0.example.mongodb.net/dileepa
+  MODE         APPLY — writing changes
+```
+
+Applying against production additionally makes you type the database name back.
+Pass `--yes` to skip that in a scripted run — and only then, since a script that
+cannot be asked refuses rather than assuming consent.
 
 ```bash
 # Confirm an existing bcrypt hash validates. Run this before the auth cutover.
@@ -136,6 +207,21 @@ The generated spec is the machine-readable version of
 [`api-contract.md`](https://github.com/dileepadev/dileepadev/blob/main/docs/architecture/api-contract.md).
 `dileepa-dev` and `admin-dileepa-dev` generate their typed clients from it, so
 when the two disagree the spec wins and the document gets corrected.
+
+## HTTP request files
+
+[`http/`](http) holds runnable requests for every endpoint, one file per router
+module, for the VS Code [REST Client][rest-client] extension. Open a `.http`
+file, pick the `development` or `production` environment in the status bar, and
+send. Credentials are read from your shell, so nothing secret is committed.
+
+[rest-client]: https://marketplace.visualstudio.com/items?itemName=humao.rest-client
+
+They complement the test suite rather than repeat it: the suite proves the logic
+offline, these exercise a real server over the wire. Each file ends with the
+failure cases worth re-running after touching auth, validation or the error
+envelope. [`http/README.md`](http/README.md) has the details, and
+`tests/test_http_files.py` fails if a route ever has no request.
 
 ## Testing
 
@@ -210,16 +296,23 @@ Every collection also takes `PATCH /{resource}/order` for bulk reordering, and
 `POST` / `PATCH /{id}` / `DELETE /{id}` for admin writes. `PATCH` is a partial
 update: only the fields sent are changed.
 
-### Deprecated, removed in v2.1.0
+### Removed from v1
 
-These exist so nothing breaks mid-migration. All three send `Deprecation`,
-`Sunset` and `Link: rel="successor-version"` headers.
+v2.0.0 ships as a single cutover — the API and every consumer released
+together — so there are no deprecated aliases and nothing waiting to be dropped
+in a later version. These v1 paths return `404`; move callers to the successor.
 
-| Endpoint | Successor |
+| v1 endpoint | Successor |
 | --- | --- |
-| `GET /events` | `GET /sessions` — sessions projected into the v1 shape, as a bare array |
-| `POST /auth/sign-in` | `POST /auth/login` |
+| `GET /events` | `GET /sessions` — an `{ items, total, limit, offset }` envelope, not a bare array |
+| `POST` `PATCH` `DELETE /events` | The equivalent `/sessions` route |
+| `POST /auth/sign-in` | `POST /auth/login` — same body, same token shape |
 | `POST /upload` | `POST /uploads` |
+| `GET /upload` | `GET /uploads` |
+| `DELETE /upload/{publicId}` | `DELETE /uploads/{publicId}` |
+
+`tests/contract/test_v1_parity.py` records every one of these with its reason,
+and fails if a v1 route is neither served nor listed there.
 
 ## Deployment
 

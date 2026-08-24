@@ -20,7 +20,13 @@ from bson import ObjectId
 from httpx import ASGITransport, AsyncClient
 
 # Set before the app imports, so `get_settings()` picks these up.
+#
+# `DOTENV_DISABLED` stops any dotenv file being read. Without it a developer's
+# own `.env.development` would supply every value this block does not name — a
+# real Resend key, a real cluster — and the suite would stop being offline on
+# exactly the machine where that matters.
 os.environ.update(
+    DOTENV_DISABLED="1",
     ENVIRONMENT="development",
     MONGODB_URI="mongodb://localhost:27017/test",
     JWT_SECRET="test-secret-not-a-real-one",

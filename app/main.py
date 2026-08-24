@@ -5,9 +5,13 @@ Run it through the FastAPI CLI, not uvicorn directly:
     uv run fastapi dev      # development, with reload
     uv run fastapi run      # serve
 
-Interactive docs are served at `/api` and the OpenAPI JSON at `/api-json`,
-enabled in development and **disabled in production**. That is the v1 posture,
-deliberately kept.
+The API reference is served at `/docs`, rendered by Scalar, and the OpenAPI
+JSON at `/api-json`. Both are enabled in development and **disabled in
+production**. That is the v1 posture, deliberately kept.
+
+`ENVIRONMENT` names the single dotenv file that loads — see `app/core/config.py`.
+A production deployment that is misconfigured refuses to start, below, rather
+than serving traffic with development's database or a placeholder secret.
 """
 
 from __future__ import annotations
@@ -19,18 +23,21 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
-from slowapi.middleware import SlowAPIMiddleware
 
-from app.core.config import Settings, get_settings
+from app.core.config import Settings, env_file, get_settings
 from app.core.db import mongo
 from app.core.errors import register_exception_handlers
-from app.core.rate_limit import limiter, rate_limit_handler, security_headers_middleware
+from app.core.rate_limit import (
+    RouterAwareSlowAPIMiddleware,
+    limiter,
+    rate_limit_handler,
+    security_headers_middleware,
+)
 from app.routers import (
     about,
     auth,
     blogs,
     contact,
-    events,
     meta,
     profile,
     projects,
@@ -65,10 +72,6 @@ TAGS_METADATA = [
         "name": "sessions",
         "description": "Talks, workshops and webinars. New in v2.0.0.",
     },
-    {
-        "name": "events",
-        "description": "Deprecated alias over sessions. Removed in v2.1.0.",
-    },
     {"name": "blogs", "description": "Blog post metadata, and the sync pipeline."},
     {"name": "contact", "description": "The contact form."},
     {"name": "uploads", "description": "Cloudinary-backed image uploads."},
@@ -78,11 +81,38 @@ TAGS_METADATA = [
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
+
+    # Checked before the database is opened, so a production deploy carrying
+    # development's configuration fails without ever connecting to whatever it
+    # was pointed at. Startup is the right place for this: it is the only moment
+    # the whole configuration is known and nothing has happened yet.
+    problems = settings.production_problems()
+    if problems:
+        raise RuntimeError(
+            "Refusing to start in production with this configuration:\n  - "
+            + "\n  - ".join(problems)
+        )
+    for warning in settings.production_warnings():
+        logger.warning("%s", warning)
+
+    # Outside production a missing file means the developer has not made one
+    # yet, and every value below is a field default — including a localhost
+    # database. Saying so beats letting them wonder why the data looks empty.
+    expected = env_file()
+    if expected is not None and not expected.exists() and not settings.is_production:
+        logger.warning(
+            "No %s found, so configuration is coming from defaults and the "
+            "process environment. Copy %s.example to it.",
+            expected,
+            expected,
+        )
+
     await mongo.connect(settings)
     await mongo.ensure_indexes()
     logger.info(
-        "api.dileepa.dev started in %s; docs %s",
+        "api.dileepa.dev started in %s against %s; docs %s",
         settings.environment,
+        settings.database_label,
         f"enabled at {settings.docs_path}" if settings.serve_docs else "disabled",
     )
     try:
@@ -120,7 +150,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_exception_handler(RateLimitExceeded, rate_limit_handler)
     register_exception_handlers(app)
 
-    app.add_middleware(SlowAPIMiddleware)
+    # Router-aware: stock SlowAPIMiddleware cannot see endpoints registered
+    # through include_router on FastAPI 0.141. See app/core/rate_limit.py.
+    app.add_middleware(RouterAwareSlowAPIMiddleware)
     app.middleware("http")(security_headers_middleware)
     app.add_middleware(
         CORSMiddleware,
@@ -129,7 +161,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_credentials=True,
         allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
         allow_headers=["Authorization", "Content-Type", "x-api-key"],
-        expose_headers=["Deprecation", "Sunset", "Link", "Retry-After"],
+        # Retry-After is the only header a browser client has to read off a
+        # cross-origin response: the rate limiter sets it on a 429.
+        expose_headers=["Retry-After"],
     )
 
     # Not declared at import time: a page that must not exist in production
@@ -152,7 +186,6 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(profile.videos_router)
     app.include_router(projects.router)
     app.include_router(sessions.router)
-    app.include_router(events.router)
     app.include_router(blogs.router)
     app.include_router(contact.router)
     app.include_router(uploads_router.router)

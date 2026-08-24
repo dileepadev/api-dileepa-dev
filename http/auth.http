@@ -1,0 +1,87 @@
+# Auth — sign in, refresh, and who am I.
+#
+# `/auth/login` is the only sign-in path. v1's `/auth/sign-in` is not aliased:
+# v2.0.0 ships as a single cutover, so consumers move in the same release.
+#
+# Run "Sign in" first. Every other file that writes anything reuses this same
+# pattern, because REST Client scopes a named request's response to the file it
+# lives in: a token fetched in one .http file is not visible from another.
+#
+# Credentials come from the active environment (.vscode/settings.json), which
+# reads them from your shell so no password is ever committed here.
+
+@email = {{adminEmail}}
+@password = {{adminPassword}}
+
+### Sign in.
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+@refreshToken = {{login.response.body.$.refresh_token}}
+
+### The signed-in user. The cheapest check that a token is good.
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer {{accessToken}}
+
+### Trade a refresh token for a fresh pair.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{refreshToken}}"
+}
+
+# --- Failure cases. These are the ones worth re-running after touching auth. ---
+
+### Wrong password -> 401 invalid_credentials.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "definitely-not-the-password"
+}
+
+### Unknown email -> 401 invalid_credentials, with the same message and
+# roughly the same timing as a wrong password. Different messages here would
+# tell an attacker which addresses are real.
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "nobody@example.com",
+  "password": "definitely-not-the-password"
+}
+
+### No token -> 401 missing_token.
+GET {{baseUrl}}/auth/profile
+
+### Malformed token -> 401 token_invalid.
+GET {{baseUrl}}/auth/profile
+Authorization: Bearer not.a.real.jwt
+
+### An access token where a refresh token belongs -> 401 token_wrong_type.
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "{{accessToken}}"
+}
+
+### v1's path is gone -> 404. Nothing should still be calling this.
+POST {{baseUrl}}/auth/sign-in
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}

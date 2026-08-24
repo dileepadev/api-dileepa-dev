@@ -8,6 +8,7 @@ document shape changes are the migration scripts' job, not the app's.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 from pymongo import ASCENDING, AsyncMongoClient
@@ -39,8 +40,13 @@ COLLECTIONS = {
     "users": "users",
 }
 
-# Indexes the API depends on. Created on startup and safe to re-run: Mongo
-# treats an identical `create_index` as a no-op.
+# Indexes the API depends on. Created on startup and safe to re-run.
+#
+# The names here are v2's. Mongoose named the ones it created after the field —
+# `email_1`, `slug_1` — and Mongo rejects a second index over the same keys
+# under a different name (`IndexOptionsConflict`). So these are reconciled by
+# **key pattern, not by name**: an existing index over the same keys is reused
+# whatever it is called. See `ensure_indexes`.
 INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
     "users": [([("email", ASCENDING)], {"unique": True, "name": "email_unique"})],
     "blogs": [
@@ -60,6 +66,18 @@ INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
     ],
     "uploads": [([("publicId", ASCENDING)], {"unique": True, "name": "publicId_unique"})],
 }
+
+
+# A comparable form of an index's key pattern. Mongo reports directions as ints
+# but is documented to allow floats, and `list_indexes` preserves order, which
+# matters: {a: 1, b: 1} and {b: 1, a: 1} are different indexes.
+KeySignature = tuple[tuple[str, str], ...]
+
+
+def _key_signature(keys: Iterable[tuple[str, Any]]) -> KeySignature:
+    return tuple(
+        (field, str(int(d)) if isinstance(d, (int, float)) else str(d)) for field, d in keys
+    )
 
 
 class MongoConnection:
@@ -105,8 +123,24 @@ class MongoConnection:
             return False
         return True
 
+    async def _existing_indexes(
+        self, collection: AsyncCollection[dict[str, Any]]
+    ) -> dict[KeySignature, dict[str, Any]]:
+        """What is already indexed on this collection, keyed by key pattern."""
+        found: dict[KeySignature, dict[str, Any]] = {}
+        async for index in await collection.list_indexes():
+            found[_key_signature(index["key"].items())] = dict(index)
+        return found
+
     async def ensure_indexes(self) -> None:
-        """Create the indexes the API relies on, without failing startup.
+        """Reconcile the indexes the API relies on, without failing startup.
+
+        Reconcile rather than create: this runs against a database Mongoose
+        built, where `users.email` and `blogs.slug` are already indexed and
+        already unique — just under Mongoose's names rather than ours. Asking
+        for the same keys under a different name is an `IndexOptionsConflict`,
+        not a no-op, so matching on the key pattern is what makes startup quiet
+        against the existing cluster and correct against an empty one.
 
         A user without `createIndex` rights should not take the API down; the
         queries still work, they are just slower, and the warning says so.
@@ -124,15 +158,57 @@ class MongoConnection:
             )
             return
 
+        created = reused = 0
+
         for name, specs in INDEXES.items():
             collection = self.collection(name)
+            try:
+                existing = await self._existing_indexes(collection)
+            except PyMongoError:
+                logger.warning("Could not list indexes on %s", name, exc_info=True)
+                continue
+
             for keys, options in specs:
-                try:
-                    await collection.create_index(keys, **options)
-                except PyMongoError:
+                index = existing.get(_key_signature(keys))
+
+                if index is None:
+                    try:
+                        await collection.create_index(keys, **options)
+                    except PyMongoError:
+                        logger.warning(
+                            "Could not create index %s on %s",
+                            options.get("name"),
+                            name,
+                            exc_info=True,
+                        )
+                    else:
+                        created += 1
+                    continue
+
+                reused += 1
+
+                # The name differing is expected and harmless. Uniqueness not
+                # being there is neither: the API relies on it to reject a
+                # duplicate slug or a second account on one address, and Mongo
+                # will not add the constraint to an index that already exists.
+                if options.get("unique") and not index.get("unique"):
                     logger.warning(
-                        "Could not create index %s on %s", options.get("name"), name, exc_info=True
+                        "Index %r on %s covers %s but is not unique, and the API expects it "
+                        "to be. Duplicates will not be rejected. Drop it and let this recreate "
+                        "it, once you have confirmed there are no duplicates.",
+                        index.get("name"),
+                        name,
+                        ", ".join(field for field, _ in keys),
                     )
+                elif index.get("name") != options.get("name"):
+                    logger.debug(
+                        "Index over %s on %s already exists as %r; leaving it alone.",
+                        ", ".join(field for field, _ in keys),
+                        name,
+                        index.get("name"),
+                    )
+
+        logger.info("Indexes reconciled: %d created, %d already present.", created, reused)
 
 
 mongo = MongoConnection()

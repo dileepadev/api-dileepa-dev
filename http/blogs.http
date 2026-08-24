@@ -1,0 +1,143 @@
+# Blogs — post metadata, and the sync pipeline.
+#
+# The blog moves onto the main website in v2.0.0, so `path` is relative and
+# `canonicalUrl` is composed from SITE_URL. v1 stored absolute blog.dileepa.dev
+# URLs in `link` and `bannerUrl`; scripts/migrate_blog_urls.py rewrites those.
+#
+# POST /blogs/sync is the blog repo's workflow, guarded by x-api-key rather
+# than a JWT. It takes ONE post per request and upserts it by slug.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+@slug = example-post
+
+### List. Newest first — `publishedDate` is a real datetime in v2.0.0, so this
+# sorts correctly, which v1's free-text `date` did not.
+GET {{baseUrl}}/blogs
+
+### Filter.
+GET {{baseUrl}}/blogs?tag=python&featured=true
+
+### Drafts. Needs an admin token: a draft is an unpublished record.
+GET {{baseUrl}}/blogs?published=false
+Authorization: Bearer {{accessToken}}
+
+### Create through the admin API.
+POST {{baseUrl}}/blogs
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "title": "An Example Post",
+  "description": "What the post is about.",
+  "publishedDate": "2026-02-01T00:00:00Z",
+  "updatedDate": null,
+  "tags": ["python", "fastapi"],
+  "series": { "name": "API Fundamentals", "order": 1 },
+  "banner": {
+    "url": "https://res.cloudinary.com/example/banner.webp",
+    "alt": "Post banner"
+  },
+  "readingTimeMinutes": 6,
+  "featured": false,
+  "order": 0,
+  "published": true
+}
+
+### Read by slug.
+GET {{baseUrl}}/blogs/{{slug}}
+
+### Update.
+PATCH {{baseUrl}}/blogs/{{slug}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "readingTimeMinutes": 8 }
+
+### Reorder.
+PATCH {{baseUrl}}/blogs/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{slug}}", "order": 5 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/blogs/{{slug}}
+Authorization: Bearer {{accessToken}}
+
+# ============================== the pipeline ==============================
+
+### Sync one post. Idempotent — re-running is harmless, which is what makes it
+# safe for a workflow that reruns on every push.
+#
+# `published` is not accepted here: visibility follows `draft`, so the front
+# matter stays the single place an author decides whether a post is live.
+POST {{baseUrl}}/blogs/sync
+Content-Type: application/json
+x-api-key: {{blogSyncApiKey}}
+
+{
+  "slug": "{{slug}}",
+  "title": "An Example Post",
+  "description": "What the post is about.",
+  "publishedDate": "2026-02-01T00:00:00Z",
+  "updatedDate": "2026-02-10T00:00:00Z",
+  "tags": ["python", "fastapi"],
+  "banner": {
+    "url": "https://res.cloudinary.com/example/banner.webp",
+    "alt": "Post banner"
+  },
+  "readingTimeMinutes": 6,
+  "draft": false,
+  "sourcePath": "content/blog/example-post.mdx",
+  "contentHash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+}
+
+### A draft. Comes back with "published": false and stays out of public lists.
+POST {{baseUrl}}/blogs/sync
+Content-Type: application/json
+x-api-key: {{blogSyncApiKey}}
+
+{
+  "slug": "example-draft",
+  "title": "A Draft",
+  "publishedDate": "2026-03-01T00:00:00Z",
+  "draft": true
+}
+
+### Confirm the draft is hidden from public callers.
+GET {{baseUrl}}/blogs
+
+# ============================= failure cases =============================
+
+### No API key -> 401 missing_api_key.
+POST {{baseUrl}}/blogs/sync
+Content-Type: application/json
+
+{ "slug": "no-key", "title": "No key", "publishedDate": "2026-01-01T00:00:00Z" }
+
+### Wrong API key -> 401 invalid_api_key.
+POST {{baseUrl}}/blogs/sync
+Content-Type: application/json
+x-api-key: not-the-real-key
+
+{ "slug": "bad-key", "title": "Bad key", "publishedDate": "2026-01-01T00:00:00Z" }
+
+### An admin JWT is not an API key -> still 401. The pipeline has one door.
+POST {{baseUrl}}/blogs/sync
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "slug": "jwt-only", "title": "JWT only", "publishedDate": "2026-01-01T00:00:00Z" }

@@ -16,7 +16,7 @@ from scripts._common import banner, base_parser, database, run, summarise
 
 
 async def main(args: argparse.Namespace) -> int:
-    banner("Roll back blog URLs", apply=args.apply)
+    banner("Roll back blog URLs")
     counts = {"rows with legacy": 0, "rows restored": 0, "nothing to restore": 0}
 
     async with database(args) as db:

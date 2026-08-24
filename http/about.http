@@ -1,0 +1,84 @@
+# About — the single about record.
+#
+# Unlike every other resource this one is a singleton: there is no id in the
+# path, and a second POST is a 409 rather than a second row.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+
+### Read it. Public. 404 until one exists.
+GET {{baseUrl}}/about
+
+### Create it.
+POST {{baseUrl}}/about
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Dileepa Bandara",
+  "title": "Software Engineer",
+  "tagline": "Building things for the web",
+  "description": [
+    "First paragraph of the about text.",
+    "Second paragraph."
+  ],
+  "status": "Open to opportunities",
+  "images": {
+    "bannerWebp": "https://res.cloudinary.com/example/banner.webp",
+    "profilePng": "https://res.cloudinary.com/example/profile.png",
+    "profileWebp": "https://res.cloudinary.com/example/profile.webp"
+  },
+  "links": {
+    "website": "https://dileepa.dev",
+    "email": "contact@dileepa.dev",
+    "github": "https://github.com/dileepadev",
+    "linkedin": "https://linkedin.com/in/dileepadev",
+    "xtwitter": "https://x.com/dileepadev",
+    "instagram": "",
+    "youtube": "",
+    "facebook": null
+  },
+  "connect": ["email", "github", "linkedin"]
+}
+
+### A second create -> 409 conflict, pointing at PATCH.
+POST {{baseUrl}}/about
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Duplicate",
+  "title": "Duplicate",
+  "tagline": "Duplicate",
+  "description": ["x"],
+  "status": "x",
+  "images": {},
+  "links": {},
+  "connect": []
+}
+
+### Update it. Send only what changes.
+PATCH {{baseUrl}}/about
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "tagline": "Building things for the web, mostly in Python"
+}
+
+### Delete it.
+DELETE {{baseUrl}}/about
+Authorization: Bearer {{accessToken}}
+
+### Writing without a token -> 401 missing_token.
+PATCH {{baseUrl}}/about
+Content-Type: application/json
+
+{ "tagline": "should not work" }

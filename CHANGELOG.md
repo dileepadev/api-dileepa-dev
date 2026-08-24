@@ -75,16 +75,23 @@ verified against FastAPI in production and a rollback window has passed.
 #### Removed - v2.0.0
 
 - Azure Blob Storage. Cloudinary is the only image backend.
-- Write access to `/events`. It survives read-only, as an alias over sessions.
+- **`/events`, in full.** Use `/sessions`. `GET /sessions` returns the standard
+  `{ items, total, limit, offset }` envelope rather than v1's bare array.
+- **`POST /auth/sign-in`.** Use `POST /auth/login` — same body, same token
+  shape, including v1's `access_token` field name.
+- **`POST /upload`, `GET /upload`, `DELETE /upload/{publicId}`.** Use the
+  `/uploads` equivalents.
 
 #### Deprecated - v2.0.0
 
-Removed in v2.1.0, not before, and only once no consumer calls them. All three
-send `Deprecation`, `Sunset` and `Link: rel="successor-version"` headers.
+Nothing. v2.0.0 is a single cutover — the API and every consumer are released at
+the same time — so no v1 path is carried behind a deprecation and nothing is
+scheduled for removal in a later version. The v1 paths listed under *Removed*
+return `404`.
 
-- `GET /events` — use `GET /sessions`.
-- `POST /auth/sign-in` — use `POST /auth/login`.
-- `POST /upload` — use `POST /uploads`.
+`tests/contract/test_v1_parity.py` records every dropped v1 route with its
+successor, and `tests/test_openapi.py` fails if any operation is ever published
+with `deprecated: true`.
 
 ## [1.2.1] - 2026-03-02
 

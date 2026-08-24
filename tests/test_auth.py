@@ -115,15 +115,14 @@ class TestSignIn:
         )
         assert missing.json() == wrong.json()
 
-    async def test_v1_path_still_works_and_says_it_is_deprecated(self, client: AsyncClient) -> None:
+    async def test_the_v1_path_is_gone(self, client: AsyncClient) -> None:
+        # v1's /auth/sign-in is not aliased. The admin app moves to /auth/login
+        # in the same release, so a 404 here is the intended answer, not a gap.
         response = await client.post(
             "/auth/sign-in",
             json={"email": "owner@dileepa.dev", "password": NODE_BCRYPT_PASSWORD},
         )
-        assert response.status_code == 200
-        assert response.headers["Deprecation"] == "true"
-        assert "Sunset" in response.headers
-        assert 'rel="successor-version"' in response.headers["Link"]
+        assert response.status_code == 404
 
 
 class TestTokens:

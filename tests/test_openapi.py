@@ -100,10 +100,26 @@ def test_every_endpoint_is_tagged(spec: Spec) -> None:
     assert untagged == []
 
 
-def test_deprecated_paths_are_marked(spec: Spec) -> None:
-    assert spec["paths"]["/events"]["get"]["deprecated"] is True
-    assert spec["paths"]["/auth/sign-in"]["post"]["deprecated"] is True
-    assert spec["paths"]["/upload"]["post"]["deprecated"] is True
+def test_no_deprecated_operations_are_published(spec: Spec) -> None:
+    """v2.0.0 ships no deprecated surface at all.
+
+    Everything releases at once, so there is nothing carried for a transition
+    and nothing scheduled for removal later. A `deprecated: true` appearing here
+    means an alias crept back in — or that something genuinely needs deprecating,
+    which is a decision to make deliberately rather than discover in a diff.
+    """
+    deprecated = [
+        f"{method.upper()} {path}"
+        for path, operations in spec["paths"].items()
+        for method, operation in operations.items()
+        if operation.get("deprecated")
+    ]
+    assert deprecated == []
+
+
+def test_the_v1_aliases_are_not_served(spec: Spec) -> None:
+    for path in ("/events", "/auth/sign-in", "/upload"):
+        assert path not in spec["paths"]
 
 
 def test_the_new_resources_are_present(spec: Spec) -> None:

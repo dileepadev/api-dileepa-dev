@@ -1,9 +1,10 @@
 """Sign in, refresh, and who am I.
 
-`POST /auth/login` is the contract's name. `POST /auth/sign-in` is v1's, kept as
-a deprecated alias with `Deprecation` and `Sunset` headers so the admin app
-keeps working until Phase 5 retargets it. Both return the same body, and it
-keeps v1's `access_token` field name.
+`POST /auth/login` is the contract's name and the only one. v1's
+`POST /auth/sign-in` is gone: v2.0.0 ships as a single cutover, with every
+consumer released at the same time, so there is no window in which an old path
+needs to keep answering. The response still keeps v1's `access_token` field
+name.
 
 A successful sign-in against a legacy Node bcrypt hash rewrites that hash to
 argon2id in place. The owner never sees it, and never has to reset a password.
@@ -14,10 +15,9 @@ from __future__ import annotations
 import logging
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends
 
 from app.core.config import Settings
-from app.core.deprecation import mark_deprecated
 from app.core.deps import CurrentUser, SettingsDep, repository
 from app.core.errors import UnauthorizedError
 from app.core.security import ACCESS, REFRESH, burn_timing, create_token, decode_token
@@ -78,20 +78,6 @@ async def _authenticate(
 @router.post("/login", response_model=TokenPair, summary="Sign in and get a token pair")
 async def login(payload: SignInRequest, settings: SettingsDep, users: UsersRepo) -> TokenPair:
     """Exchange an email and password for an access and a refresh token."""
-    return await _authenticate(payload, settings, users)
-
-
-@router.post(
-    "/sign-in",
-    response_model=TokenPair,
-    summary="Sign in (deprecated alias)",
-    deprecated=True,
-)
-async def sign_in(
-    payload: SignInRequest, settings: SettingsDep, users: UsersRepo, response: Response
-) -> TokenPair:
-    """v1's path. Identical to `/auth/login`. Removed in v2.1.0."""
-    mark_deprecated(response, "/auth/login")
     return await _authenticate(payload, settings, users)
 
 

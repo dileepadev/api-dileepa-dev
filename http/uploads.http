@@ -1,0 +1,143 @@
+# Uploads — Cloudinary-backed images.
+#
+# Cloudinary is the only image backend; Azure Blob Storage is retired. The
+# stored record is a convenience index, not the source of truth — Cloudinary is.
+#
+# POST /uploads accepts either an admin JWT or the pipeline's x-api-key, so the
+# blog workflow can upload banners without holding a user account.
+#
+# v1's /upload is not aliased — see the last request for what it returns now.
+#
+# These requests hit Cloudinary for real. With no credentials configured they
+# return 503 upload_failed, which is the correct answer, not a broken file.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+
+### Upload an image.
+# @name upload
+POST {{baseUrl}}/uploads
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./fixtures/example.png
+------HttpFileBoundary--
+
+###
+
+@publicId = {{upload.response.body.$.publicId}}
+
+### Upload into a folder, with a deterministic public_id.
+# Passing public_id is what makes a re-upload replace the asset rather than
+# pile up a second copy — the blog pipeline derives it from the repo path.
+POST {{baseUrl}}/uploads
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./fixtures/example.png
+------HttpFileBoundary
+Content-Disposition: form-data; name="folder"
+
+blog
+------HttpFileBoundary
+Content-Disposition: form-data; name="public_id"
+
+blog/example-post-banner
+------HttpFileBoundary--
+
+### The same request again replaces the asset instead of duplicating it.
+POST {{baseUrl}}/uploads
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./fixtures/example.png
+------HttpFileBoundary
+Content-Disposition: form-data; name="public_id"
+
+blog/example-post-banner
+------HttpFileBoundary--
+
+### Upload with the pipeline's API key instead of a JWT.
+POST {{baseUrl}}/uploads
+x-api-key: {{blogSyncApiKey}}
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./fixtures/example.png
+------HttpFileBoundary--
+
+### List what has been uploaded. Admin only.
+GET {{baseUrl}}/uploads
+Authorization: Bearer {{accessToken}}
+
+### List one folder.
+GET {{baseUrl}}/uploads?folder=blog
+Authorization: Bearer {{accessToken}}
+
+### Delete. The public id is a path segment because Cloudinary ids contain
+# slashes, so `blog/example-post-banner` goes in unescaped.
+DELETE {{baseUrl}}/uploads/{{publicId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= failure cases =============================
+
+### A non-image -> 400 unsupported_image_type, naming what is accepted.
+POST {{baseUrl}}/uploads
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="notes.txt"
+Content-Type: text/plain
+
+not an image
+------HttpFileBoundary--
+
+### No credentials at all -> 401.
+POST {{baseUrl}}/uploads
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./fixtures/example.png
+------HttpFileBoundary--
+
+### An unknown public id -> 404.
+DELETE {{baseUrl}}/uploads/nothing/here
+Authorization: Bearer {{accessToken}}
+
+### v1's /upload is gone -> 404. Nothing should still be calling this.
+POST {{baseUrl}}/upload
+Authorization: Bearer {{accessToken}}
+Content-Type: multipart/form-data; boundary=----HttpFileBoundary
+
+------HttpFileBoundary
+Content-Disposition: form-data; name="file"; filename="example.png"
+Content-Type: image/png
+
+< ./fixtures/example.png
+------HttpFileBoundary--

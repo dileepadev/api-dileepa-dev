@@ -51,7 +51,7 @@ def slug_date(slug: str) -> datetime | None:
 
 
 async def main(args: argparse.Namespace) -> int:
-    banner("Rewrite blog URLs", apply=args.apply)
+    banner("Rewrite blog URLs")
     settings = get_settings()
     site_url = args.site_url or settings.site_url
     counts = {"rows seen": 0, "rows rewritten": 0, "already migrated": 0, "no date found": 0}

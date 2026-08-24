@@ -1,0 +1,8 @@
+{
+  "recommendations": [
+    "humao.rest-client",
+    "charliermarsh.ruff",
+    "ms-python.python",
+    "ms-python.mypy-type-checker"
+  ]
+}

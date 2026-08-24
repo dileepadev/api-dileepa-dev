@@ -119,8 +119,13 @@ def decode_token(settings: Settings, token: str, *, expected_type: TokenType) ->
         ) from exc
 
     # Tokens issued by the NestJS app carry no `type`. Read those as access
-    # tokens so live sessions survive the cutover; remove this in v2.1.0, once
-    # every v1 token has expired.
+    # tokens so a session that was live at the moment traffic moved is not
+    # signed out by the move.
+    #
+    # This is not tied to a release, and releasing everything at once does not
+    # retire it: the tokens live in browsers, not in the consumers. It can go
+    # once every v1-issued token has expired — REFRESH_TOKEN_EXPIRE_DAYS after
+    # the cutover, so 30 days by default.
     actual_type = payload.get("type", ACCESS)
     if actual_type != expected_type:
         raise UnauthorizedError(

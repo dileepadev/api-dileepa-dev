@@ -1,0 +1,119 @@
+# Projects — new in v2.0.0.
+#
+# There is no v1 equivalent: admin-dileepa-dev advertised "Projects & Tools"
+# management and only `tools` ever existed. Projects have a `slug`, which means
+# `{identifier}` accepts either the slug or the id.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+@slug = example-project
+
+### List. Newest and featured first.
+GET {{baseUrl}}/projects
+
+### Filter. status is active | maintained | archived | concept.
+GET {{baseUrl}}/projects?status=active&featured=true
+
+### Filter by tag and category.
+GET {{baseUrl}}/projects?tag=api&category=backend
+
+### Create. Only `slug` and `name` are required; everything else has a default.
+POST {{baseUrl}}/projects
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "name": "Example Project",
+  "tagline": "One line about it",
+  "description": "The longer description.",
+  "status": "active",
+  "role": "Author",
+  "period": {
+    "start": "2025-01-01T00:00:00Z",
+    "end": null
+  },
+  "stack": ["Python", "FastAPI", "MongoDB"],
+  "categories": ["backend"],
+  "tags": ["api", "open-source"],
+  "links": {
+    "repo": "https://github.com/dileepadev/example",
+    "demo": "https://example.dileepa.dev",
+    "docs": null,
+    "caseStudy": null,
+    "package": null
+  },
+  "cover": {
+    "url": "https://res.cloudinary.com/example/cover.webp",
+    "alt": "Example project cover"
+  },
+  "gallery": [
+    { "url": "https://res.cloudinary.com/example/1.webp", "alt": "Screen one", "order": 1 }
+  ],
+  "highlights": ["Something notable about it"],
+  "metrics": [
+    { "label": "Stars", "value": "120" }
+  ],
+  "featured": true,
+  "order": 10,
+  "published": true,
+  "seo": {
+    "metaTitle": "Example Project",
+    "metaDescription": "One line about it",
+    "ogImage": "https://res.cloudinary.com/example/og.png"
+  }
+}
+
+### Read by slug.
+GET {{baseUrl}}/projects/{{slug}}
+
+### Update.
+PATCH {{baseUrl}}/projects/{{slug}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "maintained",
+  "highlights": ["Something notable", "Something else"]
+}
+
+### Reorder.
+PATCH {{baseUrl}}/projects/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{slug}}", "order": 30 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/projects/{{slug}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= failure cases =============================
+
+### A slug that is not lowercase-and-hyphens -> 422.
+POST {{baseUrl}}/projects
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "slug": "Not A Valid Slug", "name": "Bad slug" }
+
+### A slug that already exists -> 409 conflict, with details.field = "slug".
+POST {{baseUrl}}/projects
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "slug": "{{slug}}", "name": "Duplicate" }
+
+### Unknown slug -> 404.
+GET {{baseUrl}}/projects/no-such-project

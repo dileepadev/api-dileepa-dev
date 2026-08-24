@@ -47,6 +47,7 @@ working until the cutover.
 | `app/services/` | Resend and Cloudinary, the only two outbound integrations |
 | `scripts/` | Migration and operations scripts. Every writer takes `--apply` |
 | `tests/` | Offline suite. `tests/contract/` holds the v1 parity baseline |
+| `http/` | Runnable requests, one file per router module. VS Code REST Client |
 
 A resource with no behaviour of its own is a `crud_router(...)` call in
 `app/routers/profile.py` and nothing else. Give it its own module when it needs something the
@@ -60,7 +61,7 @@ others do not — do not add a flag to the factory.
 | `src/users/` | User schema and service, bcrypt hashes |
 | `src/{about,experiences,educations,tools,communities,videos}/` | Straight CRUD modules |
 | `src/blogs/` | Includes `POST /blogs/sync`, upsert-by-slug, API-key guarded |
-| `src/events/` | Thin. Replaced by `sessions` |
+| `src/events/` | Thin. Replaced by `sessions`; no v2 alias |
 | `src/contact/` · `src/upload/` | Contact form via Resend; image upload |
 | `src/common/filters/` | HTTP exception filter |
 
@@ -72,7 +73,7 @@ others do not — do not add a flag to the factory.
 - `npm run build` · `npm run start:prod` · `npm run lint` · `npm run test`
 - Swagger UI at `/api`, OpenAPI JSON at `/api-json` — **development only**, disabled in
   production. Keep it that way. (FastAPI serves the reference at `/docs` instead; see below.)
-- `.env` from `.env.example`.
+- `.env.development` from `.env.development.example`.
 
 **Target (FastAPI, v2.0.0):**
 
@@ -86,6 +87,17 @@ others do not — do not add a flag to the factory.
   neither is registered, so the page cannot be reached and the spec it reads is not served.
 - `ruff` for lint and format, `mypy` for types, `pytest` + `httpx` for tests.
 - Async MongoDB driver against the **same cluster and the same collections**. No re-seed.
+- **One env file per environment, and only one is ever read.** `ENVIRONMENT`
+  names it: `.env.development`, `.env.production`, `.env.staging`. Nothing
+  merges and there is no shared base — each file is complete, and values common
+  to both are duplicated on purpose so no one has to work out which file won.
+  A plain `.env` is read by nothing. Real environment variables still beat the
+  file. `ENVIRONMENT` itself must come from the process environment, because it
+  is what selects the file; a file that disagrees with it makes the app refuse
+  to start. Deployments read no file at all. See `app/core/config.py`.
+- **`Settings` resolves its env file in `__init__`, not in `model_config`.**
+  `model_config` is evaluated once when the class is defined, which would bake
+  in whatever `ENVIRONMENT` was at import time. Do not "simplify" it back.
 
 Run both stacks side by side during the migration. Do not delete `src/` until both consumers
 are verified against FastAPI in production and a rollback window has passed.
@@ -118,6 +130,12 @@ are verified against FastAPI in production and a rollback window has passed.
   `lambda repo=repo: repo` silently hands every request its own copy.
 - Auth is the highest-risk area — test token issue, refresh, expiry, and role enforcement
   explicitly, not incidentally.
+- The suite sets `DOTENV_DISABLED=1` before importing the app. That is what keeps it offline
+  on a machine with a populated `.env.development`; do not remove it to "make a test see real
+  config".
+- **`http/` is checked, not decorative.** `tests/test_http_files.py` fails if a route exists
+  with no request in `http/`, and if `http/*.http` stops mirroring `app/routers/*.py`. A new
+  endpoint gets its request in the same commit, like the README's endpoint table.
 
 ## Docs
 
@@ -141,7 +159,10 @@ are verified against FastAPI in production and a rollback window has passed.
 
 ## Secrets
 
-- Real values live in `.env` (gitignored) — never in `.env.example`, never committed.
+- Real values live in `.env.<environment>`, all gitignored. The `.env.*.example` templates
+  are committed and carry no real values. Never invert that.
+- Nothing secret goes in `.vscode/settings.json`, which **is** committed. The REST Client
+  environments there read credentials from the shell with `{{$processEnv …}}`.
 - This repo holds the most sensitive configuration in the platform: `MONGODB_URI`,
   `JWT_SECRET`, `CLOUDINARY_API_SECRET`, `RESEND_API_KEY`, `BLOG_SYNC_API_KEY`. Treat every one
   as production-critical. (`SWAGGER_PASSWORD` is gone: FastAPI serves its own docs, and they
@@ -181,7 +202,7 @@ are verified against FastAPI in production and a rollback window has passed.
   `scripts/verify_password_hash.py` checks a live account before cutover — **run it against the
   production database before moving traffic.**
 - **Cloudinary is the image backend.** Azure Blob Storage is retired: it is gone from the
-  FastAPI application, the README and `.env.example`. It still appears in stored URLs, which the
+  FastAPI application, the README and the env templates. It still appears in stored URLs, which the
   blog image migration replaces separately.
 - **Only `blogs` has a `slug`.** Nothing else has a stable public identifier. New resources
   (`projects`, `sessions`) must have one, unique and indexed.
@@ -189,5 +210,38 @@ are verified against FastAPI in production and a rollback window has passed.
   and the API-wide `default-src 'none'` blanks the page. `_docs_csp()` in
   `app/core/rate_limit.py` allows exactly that one origin — do not "fix" a blank docs page by
   exempting the path from CSP altogether.
-- **`/events` must survive as a deprecated alias** through v2.0.0, with `Deprecation` and
-  `Sunset` headers. Remove it in v2.1.0, not before.
+- **Production refuses to start when it is misconfigured.** `Settings.production_problems()`
+  blocks a placeholder `JWT_SECRET`, a localhost database, a wildcard `CORS_ORIGINS`, and an
+  empty `BLOG_SYNC_API_KEY`; `production_warnings()` only logs. The split matters:
+  `JWT_SECRET` **length** is a warning on purpose, because the secret has to keep matching
+  the NestJS deployment through the cutover and refusing the boot over it would take
+  production down to fix a weakness that predates this service. The check runs in the
+  lifespan, not in a validator, so tests can still build a production-shaped `Settings`.
+- **The operations scripts confirm before writing to production.** `scripts/_common.py`
+  prints the environment and database, then makes the operator type the database name back.
+  `--yes` skips it for scripted runs; a non-interactive run without `--yes` refuses rather
+  than assuming consent.
+- **The rate limiter needs `RouterAwareSlowAPIMiddleware`, not slowapi's own.** slowapi finds a
+  request's handler by walking `app.routes` for something with an `.endpoint`, but since
+  FastAPI 0.141 `include_router` keeps routers nested as `_IncludedRouter`, which has none. It
+  found nothing, treated every routed request as exempt, and applied `RATE_LIMIT_DEFAULT` to
+  nothing — `/auth/login` included. It fails **open and silently**: no 429, no `X-RateLimit-*`.
+  Per-route `@limiter.limit` decorators check inside the endpoint and were never affected,
+  which is why `/contact` kept working and hid it. Related: the limiter is built with
+  `key_style="endpoint"`, because slowapi's `url` default gives every distinct path its own
+  budget and makes the limit on any parameterised route bypassable by varying the parameter.
+  Build limiters through `make_limiter()` so tests share the real configuration.
+- **Indexes are reconciled by key pattern, not by name.** Mongoose named the indexes it
+  created after the field — `users.email_1`, `blogs.slug_1` — and both are already unique.
+  Mongo rejects a second index over the same keys under a different name with
+  `IndexOptionsConflict`, so `create_index` is not the no-op it looks like: against the real
+  cluster it threw on every startup. `ensure_indexes` matches on the key pattern and reuses
+  whatever is there. Do not "fix" a name mismatch by renaming or dropping a live unique index.
+  An existing index that is *not* unique where the API needs one is a different matter and is
+  warned about loudly — Mongo cannot add the constraint to an index that already exists.
+- **There are no deprecated aliases, and no transitional surface.** v2.0.0 is a single
+  cutover: the API and every consumer are released together, so `GET /events`,
+  `POST /auth/sign-in` and `POST /upload` are gone rather than carried. Do not reintroduce one
+  to make a consumer work — retarget the consumer. `tests/test_openapi.py` fails if any
+  operation is published with `deprecated: true`, and `tests/contract/test_v1_parity.py`
+  records each dropped v1 route with its successor.

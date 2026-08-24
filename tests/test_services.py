@@ -153,12 +153,10 @@ class TestUploads:
         assert response.status_code == 401
         assert response.json()["error"]["code"] == "missing_credentials"
 
-    async def test_the_v1_path_still_works_and_says_it_is_deprecated(
-        self, client: AsyncClient, admin_headers: Headers
-    ) -> None:
+    async def test_the_v1_path_is_gone(self, client: AsyncClient, admin_headers: Headers) -> None:
+        # Not aliased: the admin app moves to /uploads in the same release.
         response = await client.post("/upload", headers=admin_headers, files={"file": self.png()})
-        assert response.status_code == 201
-        assert response.headers["Deprecation"] == "true"
+        assert response.status_code == 404
 
     async def test_listing_needs_admin(self, client: AsyncClient, editor_headers: Headers) -> None:
         assert (await client.get("/uploads", headers=editor_headers)).status_code == 403

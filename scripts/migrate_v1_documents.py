@@ -36,7 +36,7 @@ COLLECTIONS = (
 
 
 async def main(args: argparse.Namespace) -> int:
-    banner("Backfill v1 documents", apply=args.apply)
+    banner("Backfill v1 documents")
     counts: dict[str, int] = {}
     now = datetime.now(UTC)
 

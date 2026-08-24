@@ -1,0 +1,145 @@
+# Sessions — talks, workshops and webinars. New in v2.0.0.
+#
+# `sessions` replaces v1's `events`, and it is a new model rather than a rename:
+# events had seven flat fields and no speakers, photos, recordings, slug or
+# structured time. See events.http for the deprecated alias.
+#
+# Sorting is split on purpose. `?status=upcoming` sorts soonest first;
+# everything else sorts most recent first. One query cannot do both.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+@slug = example-session
+
+### List. Past sessions, most recent first.
+GET {{baseUrl}}/sessions
+
+### Upcoming, soonest first.
+GET {{baseUrl}}/sessions?status=upcoming
+
+### Filter. type is workshop | talk | webinar | meetup | bootcamp | panel |
+# other. format is in_person | online | hybrid.
+GET {{baseUrl}}/sessions?type=talk&format=online&year=2026
+
+### Create. `slug`, `title` and `startAt` are required. `startAt` is a real
+# datetime here, unlike v1's free-text `date`.
+POST {{baseUrl}}/sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "title": "Building APIs with FastAPI",
+  "summary": "A one-line summary.",
+  "description": "The longer abstract.",
+  "type": "talk",
+  "format": "online",
+  "startAt": "2026-09-01T10:00:00Z",
+  "endAt": "2026-09-01T11:00:00Z",
+  "timezone": "Asia/Colombo",
+  "location": {
+    "venue": null,
+    "city": "Colombo",
+    "country": "Sri Lanka",
+    "mapUrl": null
+  },
+  "event": {
+    "name": "Example Conference 2026",
+    "organizer": "Example Community",
+    "organizerUrl": "https://example.community"
+  },
+  "speakers": [
+    {
+      "name": "Dileepa Bandara",
+      "role": "Speaker",
+      "profileUrl": "https://dileepa.dev",
+      "avatarUrl": "https://res.cloudinary.com/example/avatar.webp",
+      "isHost": false
+    }
+  ],
+  "cover": {
+    "url": "https://res.cloudinary.com/example/session-cover.webp",
+    "alt": "Session cover"
+  },
+  "photos": [
+    { "url": "https://res.cloudinary.com/example/photo1.webp", "alt": "The room", "order": 1 }
+  ],
+  "recordings": [
+    {
+      "platform": "youtube",
+      "url": "https://youtube.com/watch?v=example",
+      "embedUrl": "https://youtube.com/embed/example",
+      "durationSeconds": 3600,
+      "language": "en"
+    }
+  ],
+  "slides": {
+    "url": "https://speakerdeck.com/example",
+    "provider": "speakerdeck"
+  },
+  "links": [
+    { "label": "Event page", "url": "https://example.community/2026", "kind": "announcement" }
+  ],
+  "tags": ["python", "fastapi"],
+  "series": { "name": "API Fundamentals", "order": 1 },
+  "audienceSize": 120,
+  "featured": true,
+  "order": 10,
+  "published": true
+}
+
+### Read by slug. The id works here too.
+GET {{baseUrl}}/sessions/{{slug}}
+
+### Update.
+PATCH {{baseUrl}}/sessions/{{slug}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "status": "completed",
+  "audienceSize": 180
+}
+
+### Reorder.
+PATCH {{baseUrl}}/sessions/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{slug}}", "order": 40 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/sessions/{{slug}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= failure cases =============================
+
+### Missing startAt -> 422.
+POST {{baseUrl}}/sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "slug": "no-start-at", "title": "Missing a start time" }
+
+### An unknown enum value -> 422.
+POST {{baseUrl}}/sessions
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "slug": "bad-type",
+  "title": "Bad type",
+  "startAt": "2026-09-01T10:00:00Z",
+  "type": "keynote"
+}

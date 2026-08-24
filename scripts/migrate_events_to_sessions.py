@@ -119,7 +119,7 @@ def convert(event: dict[str, Any], *, timezone: str) -> dict[str, Any] | None:
 
 
 async def main(args: argparse.Namespace) -> int:
-    banner("Convert events into sessions", apply=args.apply)
+    banner("Convert events into sessions")
     counts = {"events seen": 0, "converted": 0, "unparseable date": 0, "slug already taken": 0}
 
     async with database(args) as db:

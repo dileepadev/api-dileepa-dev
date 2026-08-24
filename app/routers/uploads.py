@@ -3,7 +3,7 @@
 Two callers: the admin app with a JWT, and the blog repo's workflow with the
 API key. Both land here; nothing else holds Cloudinary credentials.
 
-The path is `/uploads`. v1 served this at `/upload`, which stays as a deprecated
+The path is `/uploads`. v1 served this at `/upload`, which is not carried over:
 alias so the admin keeps working until Phase 5 retargets it.
 """
 
@@ -11,9 +11,8 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, Query, UploadFile, status
 
-from app.core.deprecation import mark_deprecated
 from app.core.deps import AdminUser, api_key_or_admin, repository
 from app.core.errors import NotFoundError
 from app.core.pagination import ListParamsDep, Page, page
@@ -72,26 +71,6 @@ async def create_upload(
     from the repository path, so re-uploading the same file replaces the asset
     and purges the CDN cache instead of creating a second copy.
     """
-    return await _store(file, folder, public_id, repo)
-
-
-@router.post(
-    "/upload",
-    response_model=UploadResult,
-    status_code=status.HTTP_201_CREATED,
-    dependencies=[Depends(api_key_or_admin)],
-    summary="Upload an image (deprecated — use /uploads)",
-    deprecated=True,
-)
-async def create_upload_v1(
-    response: Response,
-    repo: UploadsRepo,
-    file: Annotated[UploadFile, File()],
-    folder: Annotated[str | None, Form()] = None,
-    public_id: Annotated[str | None, Form()] = None,
-) -> UploadResult:
-    """v1's path. Identical to `/uploads`. Removed in v2.1.0."""
-    mark_deprecated(response, "/uploads")
     return await _store(file, folder, public_id, repo)
 
 
