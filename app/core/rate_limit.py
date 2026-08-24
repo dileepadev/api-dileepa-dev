@@ -49,10 +49,30 @@ SECURITY_HEADERS = {
     "Strict-Transport-Security": "max-age=31536000; includeSubDomains",
 }
 
-# The docs pages need to load their own scripts and styles, so the strict policy
-# is applied everywhere except there.
+# This API serves JSON, so it needs nothing at all: no scripts, no styles, no
+# frames.
 _API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
-_DOCS_PATHS = ("/api", "/api-json")
+
+
+def _docs_csp() -> str:
+    """The reference page's policy, which is narrower than "no policy".
+
+    Scalar loads its bundle from a CDN, so the strict API policy blanks the
+    page. Exempting the path entirely would be the easy fix and the wrong one:
+    this allows exactly that origin and nothing else. `unsafe-inline` is
+    required because Scalar's loader is an inline script.
+    """
+    cdn = settings.scalar_cdn_origin
+    return (
+        "default-src 'none'; "
+        f"script-src 'self' 'unsafe-inline' {cdn}; "
+        f"style-src 'self' 'unsafe-inline' {cdn}; "
+        f"font-src 'self' data: {cdn}; "
+        "img-src 'self' data: https:; "
+        "connect-src 'self'; "
+        "frame-ancestors 'none'; "
+        "base-uri 'none'"
+    )
 
 
 async def security_headers_middleware(
@@ -61,6 +81,6 @@ async def security_headers_middleware(
     response = await call_next(request)
     for header, value in SECURITY_HEADERS.items():
         response.headers.setdefault(header, value)
-    if not request.url.path.startswith(_DOCS_PATHS):
-        response.headers.setdefault("Content-Security-Policy", _API_CSP)
+    is_docs = request.url.path == settings.docs_path
+    response.headers.setdefault("Content-Security-Policy", _docs_csp() if is_docs else _API_CSP)
     return response

@@ -25,7 +25,17 @@ from app.core.config import Settings, get_settings
 from app.core.db import mongo
 from app.core.errors import register_exception_handlers
 from app.core.rate_limit import limiter, rate_limit_handler, security_headers_middleware
-from app.routers import about, auth, blogs, contact, events, meta, profile, projects, sessions
+from app.routers import (
+    about,
+    auth,
+    blogs,
+    contact,
+    events,
+    meta,
+    profile,
+    projects,
+    sessions,
+)
 from app.routers import uploads as uploads_router
 from app.routers.meta import app_version
 
@@ -51,8 +61,14 @@ TAGS_METADATA = [
     {"name": "communities", "description": "Community involvement."},
     {"name": "videos", "description": "Video appearances."},
     {"name": "projects", "description": "Projects. New in v2.0.0."},
-    {"name": "sessions", "description": "Talks, workshops and webinars. New in v2.0.0."},
-    {"name": "events", "description": "Deprecated alias over sessions. Removed in v2.1.0."},
+    {
+        "name": "sessions",
+        "description": "Talks, workshops and webinars. New in v2.0.0.",
+    },
+    {
+        "name": "events",
+        "description": "Deprecated alias over sessions. Removed in v2.1.0.",
+    },
     {"name": "blogs", "description": "Blog post metadata, and the sync pipeline."},
     {"name": "contact", "description": "The contact form."},
     {"name": "uploads", "description": "Cloudinary-backed image uploads."},
@@ -67,7 +83,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info(
         "api.dileepa.dev started in %s; docs %s",
         settings.environment,
-        "enabled at /api" if settings.serve_docs else "disabled",
+        f"enabled at {settings.docs_path}" if settings.serve_docs else "disabled",
     )
     try:
         yield
@@ -92,8 +108,10 @@ def create_app(settings: Settings | None = None) -> FastAPI:
             "name": "MIT",
             "url": "https://github.com/dileepadev/api-dileepa-dev/blob/main/LICENSE",
         },
-        docs_url=settings.docs_url,
-        redoc_url=settings.redoc_url,
+        # Swagger UI and ReDoc are off: Scalar renders the reference instead,
+        # registered below and only when docs are enabled.
+        docs_url=None,
+        redoc_url=None,
         openapi_url=settings.openapi_url,
         lifespan=lifespan,
     )
@@ -113,6 +131,16 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         allow_headers=["Authorization", "Content-Type", "x-api-key"],
         expose_headers=["Deprecation", "Sunset", "Link", "Retry-After"],
     )
+
+    # Not declared at import time: a page that must not exist in production
+    # should not be a route object that merely happens to be unreachable.
+    if settings.serve_docs:
+        app.add_api_route(
+            settings.docs_path,
+            meta.scalar_reference,
+            methods=["GET"],
+            include_in_schema=False,
+        )
 
     app.include_router(meta.router)
     app.include_router(auth.router)

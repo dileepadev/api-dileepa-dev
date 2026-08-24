@@ -18,6 +18,7 @@ dependencies = [
     "slowapi>=0.1.9,<0.2.0",
     "cloudinary>=1.44.0,<2.0.0",
     "resend>=2.0.0,<3.0.0",
+    "scalar-fastapi>=1.8.2",
 ]
 
 [project.urls]

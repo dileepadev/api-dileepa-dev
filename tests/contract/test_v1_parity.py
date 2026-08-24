@@ -22,6 +22,8 @@ from tests.types import Headers
 
 # Every route the NestJS app served, read from src/*/**.controller.ts.
 V1_ROUTES = [
+    # `AppController` served this, returning the string "Hello World!".
+    ("GET", "/"),
     ("POST", "/auth/sign-in"),
     ("GET", "/about"),
     ("POST", "/about"),
@@ -142,6 +144,13 @@ class TestDeliberateShapeChanges:
         assert set(body) == {"error"}
         assert set(body["error"]) == {"code", "message", "details"}
         assert body["error"]["code"] == "not_found"
+
+    async def test_the_root_returns_an_object_not_a_string(self, client: AsyncClient) -> None:
+        # v1 returned the bare string "Hello World!". Nothing consumed it, and
+        # a person who lands on the bare domain gets something useful instead.
+        body = (await client.get("/")).json()
+        assert isinstance(body, dict)
+        assert body["name"] == "api.dileepa.dev"
 
     async def test_events_is_still_a_bare_array(self, client: AsyncClient) -> None:
         # The alias exists so nothing breaks mid-migration, so it keeps v1's

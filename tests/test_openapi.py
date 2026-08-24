@@ -131,15 +131,20 @@ def test_token_response_keeps_v1_field_names(spec: Spec) -> None:
 
 
 def test_docs_are_disabled_in_production(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The spec is not served in production, so no route can render it.
+
+    `docs_url` and `redoc_url` are unconditionally None now that Scalar renders
+    the reference, so asserting on them proves nothing. The route-level checks
+    are in `tests/test_docs.py`; this one guards the spec itself.
+    """
     from app.core.config import get_settings
 
     monkeypatch.setenv("ENVIRONMENT", "production")
     get_settings.cache_clear()
     try:
         app = create_app()
-        assert app.docs_url is None
-        assert app.redoc_url is None
         assert app.openapi_url is None
+        assert not [route for route in app.routes if getattr(route, "path", None) == "/docs"]
     finally:
         monkeypatch.setenv("ENVIRONMENT", "development")
         get_settings.cache_clear()

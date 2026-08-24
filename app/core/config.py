@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -74,6 +75,13 @@ class Settings(BaseSettings):
     # Interactive docs stay off in production. This is the v1 posture, kept.
     docs_enabled: bool | None = Field(default=None, alias="DOCS_ENABLED")
 
+    # Scalar renders the API reference from its CDN. Pinning a version here
+    # rather than tracking latest means the docs page cannot change under us.
+    scalar_js_url: str = Field(
+        default="https://cdn.jsdelivr.net/npm/@scalar/api-reference",
+        alias="SCALAR_JS_URL",
+    )
+
     @field_validator("mongodb_uri")
     @classmethod
     def _fix_write_concern_separator(cls, value: str) -> str:
@@ -93,16 +101,19 @@ class Settings(BaseSettings):
         return not self.is_production
 
     @property
-    def docs_url(self) -> str | None:
-        return "/api" if self.serve_docs else None
-
-    @property
-    def redoc_url(self) -> str | None:
-        return "/api/redoc" if self.serve_docs else None
+    def docs_path(self) -> str:
+        """Where the API reference is served. Scalar renders it, not Swagger UI."""
+        return "/docs"
 
     @property
     def openapi_url(self) -> str | None:
         return "/api-json" if self.serve_docs else None
+
+    @property
+    def scalar_cdn_origin(self) -> str:
+        """The origin the docs page's Content-Security-Policy has to allow."""
+        parts = urlsplit(self.scalar_js_url)
+        return f"{parts.scheme}://{parts.netloc}" if parts.netloc else ""
 
     @property
     def cors_origins(self) -> list[str]:

@@ -16,6 +16,15 @@ class Health(ApiModel):
     checks: HealthChecks
 
 
+class ServiceInfo(ApiModel):
+    """What `GET /` returns."""
+
+    name: str
+    version: str
+    docs: str | None = None
+    website: str
+
+
 class Version(ApiModel):
     name: str
     version: str
