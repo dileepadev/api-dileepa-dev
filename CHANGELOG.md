@@ -11,7 +11,74 @@ Changes are organized into the following categories:
 
 ## [Unreleased]
 
-- Changes for the next release are available in development branches.
+### 2.0.0 — in progress on `feat/v2.0.0`
+
+The backend moves from NestJS 11 on Vercel serverless to FastAPI on Python 3.13,
+hosted on FastAPI Cloud, and gains two new resources. Both stacks are in the
+repository during the migration; `src/` is deleted only after both consumers are
+verified against FastAPI in production and a rollback window has passed.
+
+#### Added - v2.0.0
+
+- FastAPI 0.141.x application under `app/`, on Python 3.13 managed with `uv`.
+  Ruff for lint and format, mypy in strict mode, pytest with httpx for tests.
+- Async MongoDB access through PyMongo's async driver, against the same cluster
+  and the same collections. Nothing is re-seeded.
+- **`/projects`** — full model with slug, status, period, stack, gallery,
+  metrics and SEO, plus CRUD and filters. Net-new; nothing existed before.
+- **`/sessions`** — speakers, photos, recordings, slides, links, structured
+  timezone-aware datetimes, slug and derived status. Supersedes `/events`.
+- `GET /health` and `GET /version`. `/health` returns 503 when MongoDB is
+  unreachable, so an uptime check does not have to read the body.
+- `POST /auth/refresh` and `GET /auth/profile`, with refresh tokens alongside
+  the existing access tokens.
+- `PATCH /{resource}/order` on every collection, for bulk reordering. Without it
+  a drag-and-drop in the admin costs one request per row.
+- Contract tests that assert every v1.2.0 route is either still served or
+  recorded as deliberately dropped with a reason.
+
+#### Changed - v2.0.0
+
+- **Collection endpoints return an envelope**, `{ items, total, limit, offset }`,
+  rather than a bare array. One shape on every resource.
+- **An empty collection is `200` with an empty list**, not `404`. v1 threw
+  `NotFoundException` when a list came back empty, which made an empty section
+  indistinguishable from a broken endpoint.
+- **Errors return `{ error: { code, message, details } }`** on every endpoint,
+  replacing `{ statusCode, timestamp, path, message }`. `code` is stable and
+  machine-readable; `message` is written to be shown to a person.
+- **Records expose `id`, not `_id`**, and never `__v`.
+- **`index` is now `order`.** Same meaning — priority, higher sorts first — and
+  the API reads either name, so it is correct against an unmigrated database.
+  `scripts/migrate_v1_documents.py` performs the rename.
+- **Blog posts carry a relative `path` and a composed `canonicalUrl`** instead
+  of an absolute `link` on `blog.dileepa.dev`, a `banner: { url, alt }` instead
+  of `bannerUrl`, a real `publishedDate` datetime instead of a date string, and
+  `description` instead of `excerpt`. Old values are kept under `legacy` for one
+  release.
+- `POST /blogs/sync` accepts a relative `path` and a Cloudinary banner URL, and
+  derives visibility from the front matter's `draft` rather than accepting
+  `published` directly.
+- Password hashes are verified with `pwdlib` rather than `passlib`, which has
+  been unmaintained since 2020 and breaks against bcrypt 4.1 and later. Existing
+  Node `bcrypt` hashes validate unchanged and are rewritten to argon2id on the
+  next successful sign-in. **No password reset is required.**
+- Interactive docs move to `/api` (Swagger UI), `/api/redoc` and `/api-json`,
+  still disabled in production.
+
+#### Removed - v2.0.0
+
+- Azure Blob Storage. Cloudinary is the only image backend.
+- Write access to `/events`. It survives read-only, as an alias over sessions.
+
+#### Deprecated - v2.0.0
+
+Removed in v2.1.0, not before, and only once no consumer calls them. All three
+send `Deprecation`, `Sunset` and `Link: rel="successor-version"` headers.
+
+- `GET /events` — use `GET /sessions`.
+- `POST /auth/sign-in` — use `POST /auth/login`.
+- `POST /upload` — use `POST /uploads`.
 
 ## [1.2.1] - 2026-03-02
 
