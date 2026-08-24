@@ -1,0 +1,48 @@
+name: Deploy
+
+# Production deploys are manual until the cutover is done and observed.
+# `workflow_dispatch` keeps a deploy a decision rather than a side effect of a
+# merge. Switch to `push: branches: [main]` once FastAPI Cloud has served
+# production traffic through a rollback window.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type "deploy" to confirm
+        required: true
+        default: ""
+
+jobs:
+  deploy:
+    name: Deploy to FastAPI Cloud
+    runs-on: ubuntu-latest
+    if: inputs.confirm == 'deploy'
+    environment: production
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups --frozen
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Types
+        run: uv run mypy
+
+      - name: Tests
+        run: uv run pytest
+
+      # Set with `fastapi cloud setup-ci`, which writes both repository secrets.
+      # Application configuration is not set here — it lives in FastAPI Cloud,
+      # managed with `fastapi cloud env set`.
+      - name: Deploy
+        env:
+          FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}
+          FASTAPI_CLOUD_APP_ID: ${{ secrets.FASTAPI_CLOUD_APP_ID }}
+        run: uv run fastapi deploy

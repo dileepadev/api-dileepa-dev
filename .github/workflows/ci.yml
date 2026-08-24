@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev, "feat/**", "fix/**"]
+  pull_request:
+    branches: [main, dev]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, types, tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Install dependencies
+        run: uv sync --all-groups --frozen
+
+      - name: Lint
+        run: uv run ruff check .
+
+      - name: Format
+        run: uv run ruff format --check .
+
+      - name: Types
+        run: uv run mypy
+
+      # The suite is offline by design: no live keys, no real MongoDB, no
+      # network. If a test here needs a secret, that test is wrong.
+      - name: Tests
+        run: uv run pytest --cov --cov-report=term-missing
+
+      - name: Export the OpenAPI spec
+        run: |
+          uv run python -c "
+          import json
+          from app.main import create_app
+          print(json.dumps(create_app().openapi(), indent=2))
+          " > openapi.json
+
+      # Both frontends generate their clients from this. Publishing it on every
+      # build means a shape change is visible in the diff of whichever repo
+      # regenerates next.
+      - name: Upload the OpenAPI spec
+        uses: actions/upload-artifact@v4
+        with:
+          name: openapi
+          path: openapi.json
