@@ -15,31 +15,34 @@ from app.models.common import ApiModel, Logo, OrderedResource, TimestampedResour
 
 
 class AboutImages(ApiModel):
-    banner_webp: Url = ""
-    profile_png: Url = ""
-    profile_webp: Url = ""
+    banner_webp: Url | None = None
+    profile_png: Url | None = None
+    profile_webp: Url | None = None
 
 
 class AboutLinks(ApiModel):
-    website: str = ""
-    email: str = ""
-    github: str = ""
-    linkedin: str = ""
-    xtwitter: str = ""
-    instagram: str = ""
-    youtube: str = ""
+    website: str | None = None
+    email: str | None = None
+    github: str | None = None
+    linkedin: str | None = None
+    xtwitter: str | None = None
+    instagram: str | None = None
+    youtube: str | None = None
     facebook: str | None = None
 
 
 class AboutBase(ApiModel):
-    name: str
-    title: str
-    tagline: str
-    description: list[str]
-    status: str
+    name: str | None = None
+    title: str | None = None
+    tagline: str | None = None
+    # Rendered beside the portrait as "<title> · <location>". Free text rather
+    # than a structured place: it is a label on a photograph, not an address.
+    location: str | None = None
+    description: list[str] | None = None
+    status: str | None = None
     images: AboutImages
     links: AboutLinks
-    connect: list[str]
+    connect: list[str] | None = None
 
 
 class AboutCreate(AboutBase):
@@ -50,6 +53,7 @@ class AboutUpdate(ApiModel):
     name: str | None = None
     title: str | None = None
     tagline: str | None = None
+    location: str | None = None
     description: list[str] | None = None
     status: str | None = None
     images: AboutImages | None = None
@@ -61,8 +65,13 @@ class About(TimestampedResource):
     name: str
     title: str
     tagline: str
+    # Optional on the way out because it is optional on the way in. A response
+    # model stricter than its request model turns a legitimately-absent field
+    # into a 500 on read, which is what `location: str` did to every record
+    # written before the field existed.
+    location: str | None = None
     description: list[str] = Field(default_factory=list)
-    status: str = ""
+    status: str | None = None
     images: AboutImages = Field(default_factory=AboutImages)
     links: AboutLinks = Field(default_factory=AboutLinks)
     connect: list[str] = Field(default_factory=list)
