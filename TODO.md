@@ -86,21 +86,27 @@ All four are decided and implemented; `api-contract.md` §10 records them.
 ### New and changed resources
 
 - [x] **`/projects`** — full model, CRUD, filters. Net-new; nothing existed
-- [x] **`/sessions`** — speakers, photos, recordings, links, structured datetimes, slug, status.
-      `status` is derived from `startAt` rather than stored, with an explicit `cancelled`
-      respected; a field a human has to remember to update goes stale within a month
-- [x] `/events` survives as a **deprecated alias** with `Deprecation`, `Sunset` and `Link`
-      headers, returning sessions projected into the v1 shape as a bare array. Read-only.
-      Remove it in v2.1.0, not before
-- [x] `/blogs` reshaped — relative `path`, `banner: { url, alt }`, `tags`, `series`,
-      `readingTimeMinutes`, real `publishedDate`
-- [x] `/blogs/sync` retargeted — accepts a relative `path` and a Cloudinary banner URL
+- [x] **`/events` reshaped** — speakers, photos, recordings, links, structured datetimes, slug,
+      status. `status` is derived from `startAt` rather than stored, with an explicit `cancelled`
+      respected; a field a human has to remember to update goes stale within a month.
+      **The path does not change.** An earlier draft renamed the resource to `sessions`; that is
+      reverted, because the site, the admin and the API all say "event" and `/events` was already
+      a published URL
+- [x] `?hasPhotos=` on `/events` — the main site's gallery is a flat grid over `events[].photos`,
+      and filtering in Python afterwards would make `total` lie
+- [x] `location` on the about record, for the line beside the portrait
+- [x] `/blogs` reshaped — relative `path`, `tags`, `series`, `readingTimeMinutes`, real
+      `publishedDate`. **`banner` retired**: it stays on the model, because removing a field is
+      breaking for every consumer, and is never written
+- [x] `/blogs/sync` retargeted — accepts a relative `path`, no banner, no `SITE_URL`
 - [x] Every new resource gets a stable, unique, indexed `slug`
-- [x] Dates become real datetimes on sessions and blogs. Videos and communities keep their
+- [x] Dates become real datetimes on events and blogs. Videos and communities keep their
       strings, because nothing sorts on them
 
-Two more aliases exist for the same reason `/events` does, and go at the same time:
-`POST /auth/sign-in` → `POST /auth/login`, and `POST /upload` → `POST /uploads`.
+**No deprecated aliases.** v2.0.0 ships as a single cutover — the API and every consumer released
+together — so no v1 path is carried and nothing is scheduled for later removal.
+`POST /auth/sign-in` → `POST /auth/login` and `POST /upload` → `POST /uploads` are renames with no
+alias; the old paths return `404`.
 
 ### Data migration
 
@@ -112,16 +118,21 @@ Scripts are written and default to dry-run. Running them against the live cluste
 - [ ] **Take a verified, restore-tested MongoDB backup** — restore-tested, not just taken
 - [x] Write the script rewriting the 18 blog rows off `blog.dileepa.dev` —
       `scripts/migrate_blog_urls.py`, with `scripts/rollback_blog_urls.py` to undo it
-- [ ] Dry-run it and read the diff, then apply
+- [x] Dry-run and applied against `development`; the legacy-slug stub row is unpublished so it
+      does not appear in the index or the sitemap
+- [ ] Dry-run and apply against `production`
 - [x] Keep the old values in a `legacy` field for one release
-- [x] Write `scripts/migrate_events_to_sessions.py`. It reads `events` and writes `sessions`,
-      never modifying the source collection, so re-running is safe and `GET /events` keeps working
-- [ ] Dry-run it; convert by hand anything it reports as an unparseable date
+- [x] Write `scripts/migrate_events_v1_to_v2.py`. It rewrites the v1 rows **in place**, keeping
+      each `_id`, after copying every original to `events_v1_backup`. Idempotent, so a failed run
+      is simply re-run; restore is `db.events_v1_backup.aggregate([{ $out: "events" }])`
+- [x] Dry-run and applied against `development` — 26 of 26 converted, no unparseable dates
+- [ ] Run it against `production`
 - [x] **`scripts/migrate_v1_documents.py`** — a gap the original plan missed. Every ported
       collection lacks `published`, `order`, `meta` and timestamps, and stores ordering as
       `index`. The API reads around all of that, but sorting happens in MongoDB, before the
       model's aliasing, so a half-migrated collection sorts wrongly
-- [ ] **Run it to completion before traffic moves**
+- [x] Run against `development`
+- [ ] **Run it against `production` to completion before traffic moves**
 
 ### Deployment
 

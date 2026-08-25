@@ -26,8 +26,11 @@ verified against FastAPI in production and a rollback window has passed.
   and the same collections. Nothing is re-seeded.
 - **`/projects`** — full model with slug, status, period, stack, gallery,
   metrics and SEO, plus CRUD and filters. Net-new; nothing existed before.
-- **`/sessions`** — speakers, photos, recordings, slides, links, structured
-  timezone-aware datetimes, slug and derived status. Supersedes `/events`.
+- `?hasPhotos=` on `/events`, for the main site's event gallery. Expressed as a
+  query rather than a fetch-and-filter, so `total` stays truthful and the
+  gallery can be paged.
+- `location` on the about record — free text, rendered beside the portrait as
+  `"{title} · {location}"`.
 - `GET /health` and `GET /version`. `/health` returns 503 when MongoDB is
   unreachable, so an uptime check does not have to read the body.
 - `POST /auth/refresh` and `GET /auth/profile`, with refresh tokens alongside
@@ -36,6 +39,11 @@ verified against FastAPI in production and a rollback window has passed.
   a drag-and-drop in the admin costs one request per row.
 - Contract tests that assert every v1.2.0 route is either still served or
   recorded as deliberately dropped with a reason.
+- **`scripts/migrate_events_v1_to_v2.py`** — rewrites the v1 `events` documents
+  into the v2 shape **in place**, keeping each `_id`, after copying every
+  original to `events_v1_backup`. Idempotent: a row already in the v2 shape is
+  recognised and skipped, so a failed run is simply re-run. Restoring is
+  `db.events_v1_backup.aggregate([{ $out: "events" }])`.
 
 #### Changed - v2.0.0
 
@@ -51,14 +59,33 @@ verified against FastAPI in production and a rollback window has passed.
 - **`index` is now `order`.** Same meaning — priority, higher sorts first — and
   the API reads either name, so it is correct against an unmigrated database.
   `scripts/migrate_v1_documents.py` performs the rename.
+- **`/events` is reshaped, not replaced.** It keeps its path and its collection
+  name and gains speakers, photos, recordings, slides, links, tags, a slug and
+  structured timezone-aware datetimes. v1 carried seven flat fields — title, a
+  free-text `date`, location, format, description, url, index — and none of the
+  rest.
+
+  An earlier draft of this migration renamed the resource to `sessions`, on the
+  reasoning that a talk is a session *at* an event. That is reverted. The site,
+  the admin and the person writing the records all say "event", `/events` was
+  already a published URL, and a name nobody uses is a name that gets mistyped.
+
+  `status` is **derived** from `startAt` rather than stored, so an event that has
+  happened says so without anyone editing it. An explicit `cancelled` is
+  respected — time passing does not un-cancel an event.
 - **Blog posts carry a relative `path` and a composed `canonicalUrl`** instead
-  of an absolute `link` on `blog.dileepa.dev`, a `banner: { url, alt }` instead
-  of `bannerUrl`, a real `publishedDate` datetime instead of a date string, and
-  `description` instead of `excerpt`. Old values are kept under `legacy` for one
-  release.
-- `POST /blogs/sync` accepts a relative `path` and a Cloudinary banner URL, and
-  derives visibility from the front matter's `draft` rather than accepting
-  `published` directly.
+  of an absolute `link` on `blog.dileepa.dev`, a real `publishedDate` datetime
+  instead of a date string, and `description` instead of `excerpt`. Old values
+  are kept under `legacy` for one release.
+- **Blog banners are retired.** Posts carry no image of their own; anything a
+  post shows is an ordinary Markdown image in the body pointing at a URL. The
+  `banner` field **stays on the model** — removing a field from a response is
+  breaking for every consumer that reads it, and buys nothing — and is written
+  by nothing. `scripts/migrate_blog_urls.py` clears it and archives the v1
+  `bannerUrl` into `legacy`.
+- `POST /blogs/sync` accepts a relative `path`, derives visibility from the
+  front matter's `draft` rather than accepting `published` directly, and no
+  longer accepts a banner.
 - Password hashes are verified with `pwdlib` rather than `passlib`, which has
   been unmaintained since 2020 and breaks against bcrypt 4.1 and later. Existing
   Node `bcrypt` hashes validate unchanged and are rewritten to argon2id on the
@@ -75,8 +102,6 @@ verified against FastAPI in production and a rollback window has passed.
 #### Removed - v2.0.0
 
 - Azure Blob Storage. Cloudinary is the only image backend.
-- **`/events`, in full.** Use `/sessions`. `GET /sessions` returns the standard
-  `{ items, total, limit, offset }` envelope rather than v1's bare array.
 - **`POST /auth/sign-in`.** Use `POST /auth/login` — same body, same token
   shape, including v1's `access_token` field name.
 - **`POST /upload`, `GET /upload`, `DELETE /upload/{publicId}`.** Use the
