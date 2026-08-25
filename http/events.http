@@ -1,8 +1,8 @@
-# Sessions — talks, workshops and webinars. New in v2.0.0.
+# Events — talks, workshops and webinars. Reshaped in v2.0.0.
 #
-# `sessions` replaces v1's `events`, and it is a new model rather than a rename:
-# events had seven flat fields and no speakers, photos, recordings, slug or
-# structured time. See events.http for the deprecated alias.
+# The collection keeps its name, but the model is new rather than renamed: v1
+# had seven flat fields and no speakers, photos, recordings, slug or structured
+# time. `scripts/migrate_events_v1_to_v2.py` rewrites the old rows.
 #
 # Sorting is split on purpose. `?status=upcoming` sorts soonest first;
 # everything else sorts most recent first. One query cannot do both.
@@ -18,19 +18,19 @@ Content-Type: application/json
 @accessToken = {{login.response.body.$.access_token}}
 @slug = example-session
 
-### List. Past sessions, most recent first.
-GET {{baseUrl}}/sessions
+### List. Past events, most recent first.
+GET {{baseUrl}}/events
 
 ### Upcoming, soonest first.
-GET {{baseUrl}}/sessions?status=upcoming
+GET {{baseUrl}}/events?status=upcoming
 
 ### Filter. type is workshop | talk | webinar | meetup | bootcamp | panel |
 # other. format is in_person | online | hybrid.
-GET {{baseUrl}}/sessions?type=talk&format=online&year=2026
+GET {{baseUrl}}/events?type=talk&format=online&year=2026
 
 ### Create. `slug`, `title` and `startAt` are required. `startAt` is a real
 # datetime here, unlike v1's free-text `date`.
-POST {{baseUrl}}/sessions
+POST {{baseUrl}}/events
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -66,7 +66,7 @@ Content-Type: application/json
   ],
   "cover": {
     "url": "https://res.cloudinary.com/example/session-cover.webp",
-    "alt": "Session cover"
+    "alt": "Event cover"
   },
   "photos": [
     { "url": "https://res.cloudinary.com/example/photo1.webp", "alt": "The room", "order": 1 }
@@ -96,10 +96,10 @@ Content-Type: application/json
 }
 
 ### Read by slug. The id works here too.
-GET {{baseUrl}}/sessions/{{slug}}
+GET {{baseUrl}}/events/{{slug}}
 
 ### Update.
-PATCH {{baseUrl}}/sessions/{{slug}}
+PATCH {{baseUrl}}/events/{{slug}}
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -109,7 +109,7 @@ Content-Type: application/json
 }
 
 ### Reorder.
-PATCH {{baseUrl}}/sessions/order
+PATCH {{baseUrl}}/events/order
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
@@ -120,20 +120,20 @@ Content-Type: application/json
 }
 
 ### Delete.
-DELETE {{baseUrl}}/sessions/{{slug}}
+DELETE {{baseUrl}}/events/{{slug}}
 Authorization: Bearer {{accessToken}}
 
 # ============================= failure cases =============================
 
 ### Missing startAt -> 422.
-POST {{baseUrl}}/sessions
+POST {{baseUrl}}/events
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 
 { "slug": "no-start-at", "title": "Missing a start time" }
 
 ### An unknown enum value -> 422.
-POST {{baseUrl}}/sessions
+POST {{baseUrl}}/events
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json
 

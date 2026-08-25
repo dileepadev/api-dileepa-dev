@@ -7,7 +7,7 @@ against the live cluster.
 `--apply` alone is not enough for production. `database()` prints the
 environment and the database it is about to open, and when that environment is
 production it makes the operator type the database name back before anything
-happens. The scripts here rewrite blog URLs and convert events into sessions —
+happens. The scripts here rewrite blog URLs and reshape event documents —
 running one against the wrong cluster is not something a dry run can undo after
 the fact.
 """

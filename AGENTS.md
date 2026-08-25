@@ -14,7 +14,7 @@ source for the main website, the admin dashboard, and the blog sync pipeline.
 
 Today it is **NestJS 11 + Mongoose + MongoDB**, deployed as Vercel serverless functions.
 v2.0.0 migrates it to **FastAPI on Python 3.13**, and extends the data model with two new
-resources — `projects` and `sessions` — plus a reshaped `blogs` for a blog that now lives on
+resource — `projects` — plus reshaped `events` and `blogs`, the latter for a blog that now lives on
 the main website instead of its own host.
 
 This is an architectural migration, not a framework swap.
@@ -61,7 +61,7 @@ others do not — do not add a flag to the factory.
 | `src/users/` | User schema and service, bcrypt hashes |
 | `src/{about,experiences,educations,tools,communities,videos}/` | Straight CRUD modules |
 | `src/blogs/` | Includes `POST /blogs/sync`, upsert-by-slug, API-key guarded |
-| `src/events/` | Thin. Replaced by `sessions`; no v2 alias |
+| `src/events/` | Thin. Reshaped in place under `app/routers/events.py`; the path is unchanged |
 | `src/contact/` · `src/upload/` | Contact form via Resend; image upload |
 | `src/common/filters/` | HTTP exception filter |
 
@@ -179,13 +179,13 @@ are verified against FastAPI in production and a rollback window has passed.
   management and only `tools` ever existed. The API side is built; admin and site are not.
 - **`events` is far thinner than it looks** — `title`, `date` (string), `location`, `format`,
   `description`, `url`, `index`. No speakers, photos, recordings, slug, status, or structured
-  time. `sessions` is a new model, not a rename.
+  time. `events` keeps its path and its collection name, and is a new model rather than a rename.
 - **Blog rows store absolute `blog.dileepa.dev` URLs** in `link` and `bannerUrl`, written by the
   blog repo's sync script. All 18 become wrong when the blog moves. The rewrite is destructive:
   take a **verified, restore-tested backup**, dry-run first, and keep old values in a `legacy`
   field for one release.
 - **Dates are strings everywhere in v1** — `event.date`, `blog.date`, `video.date`,
-  `community.period`. Sorting and filtering do not work the way you'd assume. Sessions and blogs
+  `community.period`. Sorting and filtering do not work the way you'd assume. Events and blogs
   use real datetimes in v2.0.0; videos and communities keep their strings, because nothing sorts
   on them.
 - **`scripts/migrate_v1_documents.py` runs to completion before traffic moves.** The API reads
@@ -205,7 +205,7 @@ are verified against FastAPI in production and a rollback window has passed.
   FastAPI application, the README and the env templates. It still appears in stored URLs, which the
   blog image migration replaces separately.
 - **Only `blogs` has a `slug`.** Nothing else has a stable public identifier. New resources
-  (`projects`, `sessions`) must have one, unique and indexed.
+  (`projects`, `events`) must have one, unique and indexed.
 - **The docs page has its own Content-Security-Policy.** Scalar loads its bundle from a CDN,
   and the API-wide `default-src 'none'` blanks the page. `_docs_csp()` in
   `app/core/rate_limit.py` allows exactly that one origin — do not "fix" a blank docs page by

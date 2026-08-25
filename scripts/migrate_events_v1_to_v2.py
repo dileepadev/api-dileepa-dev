@@ -1,8 +1,11 @@
-"""Convert `events` documents into the `sessions` shape.
+"""Rewrite the v1 `events` documents into the v2 `events` shape, in place.
 
-`events` is not renamed: it is read, converted, and written to a separate
-`sessions` collection, leaving the original rows untouched. `GET /events` keeps
-working throughout because it projects sessions back into the v1 shape.
+The collection keeps its name — `events` is what v2 serves — so this rewrites
+rows rather than moving them. **Every original is copied to `events_v1_backup`
+first**, and the copy carries its original `_id`, so restoring is a straight
+copy back:
+
+    db.events_v1_backup.aggregate([{ $out: "events" }])
 
 v1 stored seven fields, and three of them need judgement:
 
@@ -12,8 +15,11 @@ v1 stored seven fields, and three of them need judgement:
 - there was no slug. One is derived from the title and the date, and collisions
   are reported rather than silently suffixed.
 
-    uv run python -m scripts.migrate_events_to_sessions
-    uv run python -m scripts.migrate_events_to_sessions --apply
+Rewriting preserves `_id`, so the script is idempotent: a row already in the v2
+shape is recognised and left alone.
+
+    uv run python -m scripts.migrate_events_v1_to_v2
+    uv run python -m scripts.migrate_events_v1_to_v2 --apply
 """
 
 from __future__ import annotations
@@ -99,7 +105,7 @@ def convert(event: dict[str, Any], *, timezone: str) -> dict[str, Any] | None:
         "timezone": timezone,
         # Left unset so the API derives it from startAt.
         "location": location,
-        "event": None,
+        "host": None,
         "speakers": [],
         "cover": None,
         "photos": [],
@@ -114,19 +120,57 @@ def convert(event: dict[str, Any], *, timezone: str) -> dict[str, Any] | None:
         "order": int(event.get("order", event.get("index", 0)) or 0),
         "published": True,
         "seo": {"metaTitle": None, "metaDescription": None, "ogImage": None},
-        "meta": {"migratedFromEventId": str(event["_id"])},
+        "meta": {"migratedFrom": "events-v1"},
     }
 
 
+BACKUP = "events_v1_backup"
+
+
+def is_v2(document: dict[str, Any]) -> bool:
+    """A v2 row has a slug and a real datetime start. A v1 row has neither."""
+    return isinstance(document.get("slug"), str) and isinstance(document.get("startAt"), datetime)
+
+
 async def main(args: argparse.Namespace) -> int:
-    banner("Convert events into sessions")
-    counts = {"events seen": 0, "converted": 0, "unparseable date": 0, "slug already taken": 0}
+    banner("Rewrite v1 events into the v2 shape")
+    counts = {
+        "events seen": 0,
+        "already v2": 0,
+        "converted": 0,
+        "unparseable date": 0,
+        "slug already taken": 0,
+        "backed up": 0,
+    }
+    slugs_seen: set[str] = set()
 
     async with database(args) as db:
-        async for event in db["events"].find({}).sort("index", -1):
-            counts["events seen"] += 1
-            session = convert(event, timezone=args.timezone)
-            if session is None:
+        originals = [doc async for doc in db["events"].find({}).sort("index", 1)]
+        pending = [doc for doc in originals if not is_v2(doc)]
+        counts["events seen"] = len(originals)
+        counts["already v2"] = len(originals) - len(pending)
+
+        if pending:
+            existing_backup = await db[BACKUP].count_documents({})
+            if existing_backup:
+                print(
+                    f"  {BACKUP} already holds {existing_backup} documents; "
+                    "leaving it as it is rather than overwriting an earlier backup."
+                )
+            else:
+                print(f"  Backing up {len(pending)} v1 documents to {BACKUP}.")
+                counts["backed up"] = len(pending)
+                if args.apply:
+                    await db[BACKUP].insert_many([dict(doc) for doc in pending])
+
+        # Slugs that already exist on rows this run will not touch.
+        for doc in originals:
+            if is_v2(doc) and isinstance(doc.get("slug"), str):
+                slugs_seen.add(doc["slug"])
+
+        for event in pending:
+            converted = convert(event, timezone=args.timezone)
+            if converted is None:
                 counts["unparseable date"] += 1
                 print(
                     f"  ! {event.get('title')!r}: date {event.get('date')!r} could not be read. "
@@ -134,27 +178,37 @@ async def main(args: argparse.Namespace) -> int:
                 )
                 continue
 
-            clash = await db["sessions"].find_one({"slug": session["slug"]})
-            if clash is not None:
+            if converted["slug"] in slugs_seen:
                 counts["slug already taken"] += 1
-                print(f"  ! {session['slug']}: a session with that slug already exists. Skipped.")
+                print(f"  ! {converted['slug']}: that slug is already taken. Skipped.")
                 continue
+            slugs_seen.add(converted["slug"])
 
-            print(f"  {event.get('title')!r} -> {session['slug']}  ({session['format']})")
+            print(f"  {event.get('title')!r} -> {converted['slug']}  ({converted['format']})")
             counts["converted"] += 1
             if args.apply:
                 now = datetime.now(UTC)
-                await db["sessions"].insert_one({**session, "createdAt": now, "updatedAt": now})
+                stored = event.get("createdAt")
+                created = stored if isinstance(stored, datetime) else now
+                # replace_one, not update: the v1 fields (date, location, index,
+                # __v) must go, or they sit alongside the v2 ones forever.
+                await db["events"].replace_one(
+                    {"_id": event["_id"]},
+                    {**converted, "createdAt": created, "updatedAt": now},
+                )
 
     summarise(counts, apply=args.apply)
     if not args.apply:
-        print("The `events` collection is never modified. Re-running is safe.")
+        print(f"Nothing was written, and {BACKUP} was not created.")
+    else:
+        print(f"\nOriginals are in {BACKUP}. To undo:")
+        print(f'  db.{BACKUP}.aggregate([{{ $out: "events" }}])')
     return 0
 
 
 if __name__ == "__main__":
     parser = base_parser(__doc__ or "")
     parser.add_argument(
-        "--timezone", default="Asia/Colombo", help="IANA timezone for the converted sessions."
+        "--timezone", default="Asia/Colombo", help="IANA timezone for the converted events."
     )
     run(main, parser.parse_args())

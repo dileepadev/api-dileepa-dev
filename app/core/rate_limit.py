@@ -31,7 +31,7 @@ def make_limiter(*default_limits: str) -> Limiter:
         headers_enabled=True,
         # Bucket the default limit by handler, not by URL. slowapi's default is
         # `url`, which gives every distinct path its own budget — so
-        # `/sessions/a`, `/sessions/b` and so on each get the full allowance,
+        # `/events/a`, `/events/b` and so on each get the full allowance,
         # and the limit on any route with a parameter is bypassed by varying
         # the parameter. `endpoint` makes RATE_LIMIT_DEFAULT mean what it reads
         # as: this many requests per address, per endpoint, per window.

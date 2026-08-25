@@ -52,7 +52,7 @@ NODE_BCRYPT_PASSWORD = "S0me-Real!Password_2026"
 ADMIN_ID = ObjectId()
 EDITOR_ID = ObjectId()
 
-# Hashed once for the whole session. argon2id is deliberately slow, and hashing
+# Hashed once for the whole event. argon2id is deliberately slow, and hashing
 # these per test added most of a minute to the suite.
 EDITOR_HASH = hash_password("editor-password")
 DISABLED_HASH = hash_password("disabled-password")
@@ -65,7 +65,7 @@ COLLECTIONS = (
     "communities",
     "videos",
     "blogs",
-    "sessions",
+    "events",
     "projects",
     "uploads",
     "users",
@@ -73,7 +73,7 @@ COLLECTIONS = (
 
 UNIQUE_FIELDS: dict[str, tuple[str, ...]] = {
     "blogs": ("slug",),
-    "sessions": ("slug",),
+    "events": ("slug",),
     "projects": ("slug",),
     "tools": ("name",),
     "uploads": ("publicId",),

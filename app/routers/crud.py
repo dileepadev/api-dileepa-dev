@@ -120,7 +120,7 @@ def crud_router(
 
     `transform` is applied to every stored document before the response model
     validates it. Resources with a computed field use it — blogs compose `path`
-    and `canonicalUrl`, sessions derive `status` — and it runs on every route,
+    and `canonicalUrl`, events derive `status` — and it runs on every route,
     not only the list, so a single record is never returned half-built.
     """
     router = APIRouter(prefix=prefix, tags=[tag])

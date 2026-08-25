@@ -181,8 +181,9 @@ uv run python -m scripts.migrate_blog_urls
 uv run python -m scripts.migrate_blog_urls --apply
 uv run python -m scripts.rollback_blog_urls --apply   # if it has to be undone
 
-# Convert events into sessions. The events collection is never modified.
-uv run python -m scripts.migrate_events_to_sessions --apply
+# Rewrite the v1 events into the v2 shape, in place. Originals are copied to
+# events_v1_backup first, so this is reversible.
+uv run python -m scripts.migrate_events_v1_to_v2 --apply
 
 # Create or update an account. There is no /users endpoint by design.
 uv run python -m scripts.create_user --email owner@dileepa.dev --apply
@@ -281,7 +282,7 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `GET /communities` | ✓ | CRUD | |
 | `GET /videos` | ✓ | CRUD | |
 | `GET /projects` · `GET /projects/{slug}` | ✓ | CRUD | **New in v2.0.0** |
-| `GET /sessions` · `GET /sessions/{slug}` | ✓ | CRUD | **New in v2.0.0** — supersedes `/events` |
+| `GET /events` · `GET /events/{slug}` | ✓ | CRUD | **Reshaped in v2.0.0** — same path, new model |
 | `GET /blogs` · `GET /blogs/{slug}` | ✓ | CRUD | Reshaped |
 | `POST /blogs/sync` | — | API key | The blog repo's pipeline |
 | `POST /uploads` | — | ✓ or API key | Cloudinary-backed |
@@ -304,8 +305,8 @@ in a later version. These v1 paths return `404`; move callers to the successor.
 
 | v1 endpoint | Successor |
 | --- | --- |
-| `GET /events` | `GET /sessions` — an `{ items, total, limit, offset }` envelope, not a bare array |
-| `POST` `PATCH` `DELETE /events` | The equivalent `/sessions` route |
+| `GET /events` | Same path. An `{ items, total, limit, offset }` envelope rather than a bare array, over the v2 model |
+| `POST` `PATCH` `DELETE /events/{id}` | The same verbs against `/events/{slug}` |
 | `POST /auth/sign-in` | `POST /auth/login` — same body, same token shape |
 | `POST /upload` | `POST /uploads` |
 | `GET /upload` | `GET /uploads` |

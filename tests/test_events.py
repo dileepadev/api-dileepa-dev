@@ -1,4 +1,4 @@
-"""Sessions, and the `/events` alias projected out of them."""
+"""Events — the v2 shape, statuses derived, and the list filters."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from tests.types import Headers, Repos, must_find
 NOW = datetime.now(UTC)
 
 
-def session_doc(slug: str, *, days: int, **overrides: Any) -> dict[str, Any]:
+def event_doc(slug: str, *, days: int, **overrides: Any) -> dict[str, Any]:
     return {
         "slug": slug,
         "title": slug.replace("-", " ").title(),
@@ -23,10 +23,10 @@ def session_doc(slug: str, *, days: int, **overrides: Any) -> dict[str, Any]:
         "format": "in_person",
         "startAt": NOW + timedelta(days=days),
         "timezone": "Asia/Colombo",
-        # Every field the sort keys touch is present. Sessions are only ever
-        # written by this API, so they always are — and
-        # `scripts/migrate_events_to_sessions.py` fills them in for the rows it
-        # converts, because Mongo sorts a missing field below `false`.
+        # Every field the sort keys touch is present. Events written by this
+        # API always are, and `scripts/migrate_events_v1_to_v2.py` fills them in
+        # for the rows it converts, because Mongo sorts a missing field below
+        # `false`.
         "featured": False,
         "order": 0,
         "published": True,
@@ -38,8 +38,8 @@ def session_doc(slug: str, *, days: int, **overrides: Any) -> dict[str, Any]:
 def seed() -> dict[str, list[dict[str, Any]]]:
     return {
         "users": users_seed(),
-        "sessions": [
-            session_doc(
+        "events": [
+            event_doc(
                 "intro-to-azure",
                 days=-90,
                 location={"venue": "NIBM", "city": "Colombo", "country": "Sri Lanka"},
@@ -53,7 +53,7 @@ def seed() -> dict[str, list[dict[str, Any]]]:
                 ],
                 tags=["azure"],
             ),
-            session_doc(
+            event_doc(
                 "agents-in-production",
                 days=30,
                 format="online",
@@ -61,69 +61,69 @@ def seed() -> dict[str, list[dict[str, Any]]]:
                 links=[{"label": "Sign up", "url": "https://x/y", "kind": "registration"}],
                 tags=["ai"],
             ),
-            session_doc("cancelled-meetup", days=10, status="cancelled", type="meetup"),
+            event_doc("cancelled-meetup", days=10, status="cancelled", type="meetup"),
         ],
     }
 
 
 class TestDerivedStatus:
     async def test_a_past_session_reads_as_completed(self, client: AsyncClient) -> None:
-        body = (await client.get("/sessions/intro-to-azure")).json()
+        body = (await client.get("/events/intro-to-azure")).json()
         assert body["status"] == "completed"
 
     async def test_a_future_session_reads_as_upcoming(self, client: AsyncClient) -> None:
-        body = (await client.get("/sessions/agents-in-production")).json()
+        body = (await client.get("/events/agents-in-production")).json()
         assert body["status"] == "upcoming"
 
     async def test_cancelled_is_never_derived_away(self, client: AsyncClient) -> None:
-        """Time passing does not un-cancel a session."""
-        body = (await client.get("/sessions/cancelled-meetup")).json()
+        """Time passing does not un-cancel a event."""
+        body = (await client.get("/events/cancelled-meetup")).json()
         assert body["status"] == "cancelled"
 
     async def test_status_is_not_stored_on_the_document(self, repositories: Repos) -> None:
-        stored = await must_find(repositories["sessions"], {"slug": "intro-to-azure"})
+        stored = await must_find(repositories["events"], {"slug": "intro-to-azure"})
         assert "status" not in stored
 
 
 class TestFilters:
     async def test_upcoming(self, client: AsyncClient) -> None:
-        body = (await client.get("/sessions?status=upcoming")).json()
+        body = (await client.get("/events?status=upcoming")).json()
         assert [item["slug"] for item in body["items"]] == ["agents-in-production"]
         assert body["total"] == 1
 
     async def test_completed(self, client: AsyncClient) -> None:
-        body = (await client.get("/sessions?status=completed")).json()
+        body = (await client.get("/events?status=completed")).json()
         assert [item["slug"] for item in body["items"]] == ["intro-to-azure"]
 
     async def test_cancelled(self, client: AsyncClient) -> None:
-        body = (await client.get("/sessions?status=cancelled")).json()
+        body = (await client.get("/events?status=cancelled")).json()
         assert [item["slug"] for item in body["items"]] == ["cancelled-meetup"]
 
     async def test_total_reflects_the_filter_not_the_page(self, client: AsyncClient) -> None:
         # Filtering after the query would make `total` lie.
-        body = (await client.get("/sessions?status=upcoming&limit=1")).json()
+        body = (await client.get("/events?status=upcoming&limit=1")).json()
         assert body["total"] == 1
 
     async def test_by_type_and_format(self, client: AsyncClient) -> None:
-        assert (await client.get("/sessions?type=webinar")).json()["total"] == 1
-        assert (await client.get("/sessions?format=online")).json()["total"] == 1
+        assert (await client.get("/events?type=webinar")).json()["total"] == 1
+        assert (await client.get("/events?format=online")).json()["total"] == 1
 
     async def test_by_tag(self, client: AsyncClient) -> None:
-        assert (await client.get("/sessions?tag=ai")).json()["total"] == 1
+        assert (await client.get("/events?tag=ai")).json()["total"] == 1
 
     async def test_by_year(self, client: AsyncClient) -> None:
         year = (NOW + timedelta(days=30)).year
-        body = (await client.get(f"/sessions?year={year}")).json()
+        body = (await client.get(f"/events?year={year}")).json()
         assert "agents-in-production" in [item["slug"] for item in body["items"]]
 
     async def test_year_and_status_combine_rather_than_overwrite(self, client: AsyncClient) -> None:
         past_year = (NOW - timedelta(days=90)).year
-        body = (await client.get(f"/sessions?status=upcoming&year={past_year}")).json()
-        # Upcoming sessions in a past year: none, unless one bound clobbered the other.
+        body = (await client.get(f"/events?status=upcoming&year={past_year}")).json()
+        # Upcoming events in a past year: none, unless one bound clobbered the other.
         assert body["total"] == 0 or all(item["status"] == "upcoming" for item in body["items"])
 
     async def test_an_invalid_enum_value_is_a_422(self, client: AsyncClient) -> None:
-        response = await client.get("/sessions?type=karaoke")
+        response = await client.get("/events?type=karaoke")
         assert response.status_code == 422
 
 
@@ -132,7 +132,7 @@ class TestSorting:
         self, client: AsyncClient, admin_headers: Headers
     ) -> None:
         await client.post(
-            "/sessions",
+            "/events",
             headers=admin_headers,
             json={
                 "slug": "sooner",
@@ -140,14 +140,14 @@ class TestSorting:
                 "startAt": (NOW + timedelta(days=2)).isoformat(),
             },
         )
-        body = (await client.get("/sessions?status=upcoming")).json()
+        body = (await client.get("/events?status=upcoming")).json()
         assert [item["slug"] for item in body["items"]] == ["sooner", "agents-in-production"]
 
     async def test_completed_sorts_most_recent_first(
         self, client: AsyncClient, admin_headers: Headers
     ) -> None:
         await client.post(
-            "/sessions",
+            "/events",
             headers=admin_headers,
             json={
                 "slug": "older",
@@ -155,7 +155,7 @@ class TestSorting:
                 "startAt": (NOW - timedelta(days=400)).isoformat(),
             },
         )
-        body = (await client.get("/sessions?status=completed")).json()
+        body = (await client.get("/events?status=completed")).json()
         assert [item["slug"] for item in body["items"]] == ["intro-to-azure", "older"]
 
 
@@ -164,14 +164,14 @@ class TestEmptyStates:
         self, client: AsyncClient
     ) -> None:
         """Both empty is a normal state, not a degraded one."""
-        body = (await client.get("/sessions/agents-in-production")).json()
+        body = (await client.get("/events/agents-in-production")).json()
         assert body["photos"] == []
         assert body["recordings"] == []
         assert body["slides"] is None
         assert body["title"] and body["summary"]
 
     async def test_an_online_session_has_no_location(self, client: AsyncClient) -> None:
-        body = (await client.get("/sessions/agents-in-production")).json()
+        body = (await client.get("/events/agents-in-production")).json()
         assert body["location"] is None
 
 
@@ -180,11 +180,11 @@ class TestWrites:
         self, client: AsyncClient, admin_headers: Headers
     ) -> None:
         response = await client.post(
-            "/sessions",
+            "/events",
             headers=admin_headers,
             json={
                 "slug": "full-session",
-                "title": "A session with everything",
+                "title": "A event with everything",
                 "startAt": (NOW - timedelta(days=1)).isoformat(),
                 "speakers": [
                     {"name": "Dileepa Bandara", "role": "Host", "isHost": True},
@@ -213,7 +213,7 @@ class TestWrites:
         self, client: AsyncClient, admin_headers: Headers
     ) -> None:
         response = await client.post(
-            "/sessions",
+            "/events",
             headers=admin_headers,
             json={
                 "slug": "intro-to-azure",
@@ -227,7 +227,7 @@ class TestWrites:
         self, client: AsyncClient, admin_headers: Headers
     ) -> None:
         response = await client.post(
-            "/sessions",
+            "/events",
             headers=admin_headers,
             json={"slug": "Not A Slug", "title": "x", "startAt": NOW.isoformat()},
         )

@@ -1,10 +1,10 @@
-"""Sessions — net-new in v2.0.0, superseding `events`.
+"""Events — reshaped in v2.0.0 from the seven-field v1 `events` collection.
 
-`status` is derived on read rather than stored, so a session that has happened
+`status` is derived on read rather than stored, so an event that has happened
 says so without anyone remembering to edit it. An explicit `cancelled` is
-respected; time passing does not un-cancel a session.
+respected; time passing does not un-cancel an event.
 
-Ordering follows the contract: upcoming sessions read soonest-first, completed
+Ordering follows the contract: upcoming events read soonest-first, completed
 ones most-recent-first. Sorting one list by two opposite rules is not possible
 in a single query, so the split is explicit — `?status=upcoming` sorts ascending
 and everything else sorts descending.
@@ -19,27 +19,27 @@ from fastapi import Depends, Query
 
 from app.core.deps import OptionalUser, repository
 from app.core.pagination import ListParamsDep, Page, page
-from app.models.session import (
-    Session,
-    SessionCreate,
-    SessionFormat,
-    SessionStatus,
-    SessionType,
-    SessionUpdate,
+from app.models.event import (
+    Event,
+    EventCreate,
+    EventFormat,
+    EventStatus,
+    EventType,
+    EventUpdate,
     derive_status,
 )
 from app.repositories.base import Document, DocumentRepository, Filters, Sort
 from app.routers.crud import crud_router, visibility_filter
 
-SESSION_SORT_PAST: Sort = [("featured", -1), ("startAt", -1), ("order", -1)]
-SESSION_SORT_UPCOMING: Sort = [("featured", -1), ("startAt", 1), ("order", -1)]
+EVENT_SORT_PAST: Sort = [("featured", -1), ("startAt", -1), ("order", -1)]
+EVENT_SORT_UPCOMING: Sort = [("featured", -1), ("startAt", 1), ("order", -1)]
 
 
 def with_status(document: Document, *, now: datetime | None = None) -> Document:
     """Fill in the derived `status` before the response model validates."""
     start_at = document.get("startAt")
     if not isinstance(start_at, datetime):
-        # A session with no usable start time keeps whatever was stored; the
+        # An event with no usable start time keeps whatever was stored; the
         # response model requires a status, so fall back to upcoming.
         return {**document, "status": document.get("status") or "upcoming"}
     end_at = document.get("endAt")
@@ -55,23 +55,23 @@ def with_status(document: Document, *, now: datetime | None = None) -> Document:
 
 
 router = crud_router(
-    collection="sessions",
-    prefix="/sessions",
-    tag="sessions",
-    label="session",
-    read_model=Session,
-    create_model=SessionCreate,
-    update_model=SessionUpdate,
-    sort=SESSION_SORT_PAST,
+    collection="events",
+    prefix="/events",
+    tag="events",
+    label="event",
+    read_model=Event,
+    create_model=EventCreate,
+    update_model=EventUpdate,
+    sort=EVENT_SORT_PAST,
     slug_field="slug",
     include_list=False,
     transform=with_status,
 )
 
-SessionsRepo = Annotated[DocumentRepository, Depends(repository("sessions"))]
+EventsRepo = Annotated[DocumentRepository, Depends(repository("events"))]
 
 
-def _status_filter(wanted: SessionStatus, now: datetime) -> Filters:
+def _status_filter(wanted: EventStatus, now: datetime) -> Filters:
     """Express a derived status as a query, so paging stays correct.
 
     Filtering in Python after the query would make `total` and `limit` lie.
@@ -83,24 +83,31 @@ def _status_filter(wanted: SessionStatus, now: datetime) -> Filters:
     return {"status": {"$ne": "cancelled"}, "startAt": {"$lt": now}}
 
 
-@router.get("", response_model=Page[Session], summary="List sessions")
-async def list_sessions(
+@router.get("", response_model=Page[Event], summary="List events")
+async def list_events(
     params: ListParamsDep,
     user: OptionalUser,
-    repo: SessionsRepo,
-    status: Annotated[SessionStatus | None, Query()] = None,
+    repo: EventsRepo,
+    status: Annotated[EventStatus | None, Query()] = None,
     # `type` and `format` shadow builtins. They are the contract's parameter
     # names and appear in the OpenAPI spec, so they are not renamed here.
-    type: Annotated[SessionType | None, Query()] = None,
-    format: Annotated[SessionFormat | None, Query()] = None,
+    type: Annotated[EventType | None, Query()] = None,
+    format: Annotated[EventFormat | None, Query()] = None,
     year: Annotated[int | None, Query(ge=1970, le=2999)] = None,
     tag: Annotated[str | None, Query()] = None,
     featured: Annotated[bool | None, Query()] = None,
     published: Annotated[bool | None, Query()] = None,
-) -> Page[Session]:
-    """List sessions.
+    has_photos: Annotated[
+        bool | None,
+        Query(
+            alias="hasPhotos",
+            description="Only events that carry at least one gallery photo.",
+        ),
+    ] = None,
+) -> Page[Event]:
+    """List events.
 
-    Upcoming sessions sort soonest first; everything else sorts most recent
+    Upcoming events sort soonest first; everything else sorts most recent
     first. Filters combine.
     """
     now = datetime.now(UTC)
@@ -115,6 +122,11 @@ async def list_sessions(
         filters["tags"] = tag
     if featured is not None:
         filters["featured"] = featured
+    if has_photos is not None:
+        # `photos.0` exists iff the array is non-empty. Expressed as a query
+        # rather than filtered afterwards, so `total` stays truthful — the
+        # gallery on the main site pages through this.
+        filters["photos.0"] = {"$exists": has_photos}
     if year is not None:
         start = datetime(year, 1, 1, tzinfo=UTC)
         end = datetime(year + 1, 1, 1, tzinfo=UTC)
@@ -129,10 +141,10 @@ async def list_sessions(
                 window["$lt"] = min(existing["$lt"], end)
         filters["startAt"] = window
 
-    sort = SESSION_SORT_UPCOMING if status == "upcoming" else SESSION_SORT_PAST
+    sort = EVENT_SORT_UPCOMING if status == "upcoming" else EVENT_SORT_PAST
     documents, total = await repo.list(
         filters=filters, sort=sort, limit=params.limit, offset=params.offset
     )
     return page(
-        [Session.model_validate(with_status(doc, now=now)) for doc in documents], total, params
+        [Event.model_validate(with_status(doc, now=now)) for doc in documents], total, params
     )

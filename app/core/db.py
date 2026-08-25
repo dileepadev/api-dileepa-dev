@@ -25,6 +25,10 @@ logger = logging.getLogger(__name__)
 # Collection names as they exist in Atlas today. Mongoose pluralised the model
 # name for anything without an explicit `collection:` option, which is why
 # `blogs`, `events`, `videos` and `uploads` look inconsistent with the rest.
+#
+# `events` holds the v2 shape. The v1 rows that used to be here are copied to
+# `events_v1_backup` by scripts/migrate_events_v1_to_v2.py before it rewrites
+# them, so the original seven-field documents remain recoverable.
 COLLECTIONS = {
     "about": "about",
     "experiences": "experiences",
@@ -34,7 +38,6 @@ COLLECTIONS = {
     "videos": "videos",
     "blogs": "blogs",
     "events": "events",
-    "sessions": "sessions",
     "projects": "projects",
     "uploads": "uploads",
     "users": "users",
@@ -59,7 +62,7 @@ INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
         ([("status", ASCENDING)], {"name": "status"}),
         ([("tags", ASCENDING)], {"name": "tags"}),
     ],
-    "sessions": [
+    "events": [
         ([("slug", ASCENDING)], {"unique": True, "name": "slug_unique"}),
         ([("startAt", ASCENDING)], {"name": "startAt"}),
         ([("status", ASCENDING)], {"name": "status"}),

@@ -118,12 +118,14 @@ def test_no_deprecated_operations_are_published(spec: Spec) -> None:
 
 
 def test_the_v1_aliases_are_not_served(spec: Spec) -> None:
-    for path in ("/events", "/auth/sign-in", "/upload"):
+    # `/events` is absent from this list on purpose: it is the one v1 path v2
+    # keeps, reshaped rather than renamed.
+    for path in ("/auth/sign-in", "/upload"):
         assert path not in spec["paths"]
 
 
 def test_the_new_resources_are_present(spec: Spec) -> None:
-    for path in ("/projects", "/projects/{identifier}", "/sessions", "/sessions/{identifier}"):
+    for path in ("/projects", "/projects/{identifier}", "/events", "/events/{identifier}"):
         assert path in spec["paths"]
 
 

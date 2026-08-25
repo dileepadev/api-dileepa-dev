@@ -55,8 +55,8 @@ def matches(template: str, actual: str) -> bool:
     """Does `actual` fit the OpenAPI `template`?
 
     Template segments in braces are placeholders and match anything, which is
-    what makes `/sessions/{{slug}}` in a file line up with
-    `/sessions/{identifier}` in the spec. A trailing placeholder is allowed to
+    what makes `/events/{{slug}}` in a file line up with
+    `/events/{identifier}` in the spec. A trailing placeholder is allowed to
     swallow the rest of the path, because `/uploads/{public_id:path}` is
     declared as a path converter — Cloudinary public ids contain slashes.
     """
@@ -118,11 +118,11 @@ class TestCoverage:
     @pytest.mark.parametrize(
         ("template", "actual", "expected"),
         [
-            ("/sessions/{identifier}", "/sessions/{{slug}}", True),
-            ("/sessions/order", "/sessions/order", True),
+            ("/events/{identifier}", "/events/{{slug}}", True),
+            ("/events/order", "/events/order", True),
             # A literal path must not be satisfied by the placeholder route.
-            ("/sessions/order", "/sessions/{{slug}}", False),
-            ("/sessions/{identifier}", "/sessions", False),
+            ("/events/order", "/events/{{slug}}", False),
+            ("/events/{identifier}", "/events", False),
             # The path converter swallows the slashes in a Cloudinary id.
             ("/uploads/{public_id}", "/uploads/nothing/here", True),
             ("/about", "/about", True),

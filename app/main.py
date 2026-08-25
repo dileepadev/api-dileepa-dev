@@ -38,10 +38,10 @@ from app.routers import (
     auth,
     blogs,
     contact,
+    events,
     meta,
     profile,
     projects,
-    sessions,
 )
 from app.routers import uploads as uploads_router
 from app.routers.meta import app_version
@@ -69,8 +69,8 @@ TAGS_METADATA = [
     {"name": "videos", "description": "Video appearances."},
     {"name": "projects", "description": "Projects. New in v2.0.0."},
     {
-        "name": "sessions",
-        "description": "Talks, workshops and webinars. New in v2.0.0.",
+        "name": "events",
+        "description": "Talks, workshops and webinars. Reshaped in v2.0.0.",
     },
     {"name": "blogs", "description": "Blog post metadata, and the sync pipeline."},
     {"name": "contact", "description": "The contact form."},
@@ -185,7 +185,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(profile.communities_router)
     app.include_router(profile.videos_router)
     app.include_router(projects.router)
-    app.include_router(sessions.router)
+    app.include_router(events.router)
     app.include_router(blogs.router)
     app.include_router(contact.router)
     app.include_router(uploads_router.router)

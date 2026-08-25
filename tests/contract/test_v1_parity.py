@@ -62,11 +62,6 @@ V1_ROUTES = [
 # path has to keep answering, and nothing here is waiting to be removed in a
 # later version. Each entry names the successor a caller moves to.
 INTENTIONALLY_DROPPED = {
-    ("GET", "/events"): "Replaced by GET /sessions. No alias: consumers move in this release.",
-    ("POST", "/events"): "Writes moved to POST /sessions.",
-    ("PATCH", "/events/{id}"): "Writes moved to PATCH /sessions/{slug}.",
-    ("DELETE", "/events/{id}"): "Writes moved to DELETE /sessions/{slug}.",
-    ("GET", "/events/{id}"): "Superseded by GET /sessions/{slug}.",
     ("POST", "/auth/sign-in"): "Renamed to POST /auth/login. Same body, same token shape.",
     ("POST", "/upload"): "Renamed to POST /uploads.",
     ("GET", "/upload"): "Renamed to GET /uploads.",
@@ -160,9 +155,11 @@ class TestDeliberateShapeChanges:
         assert isinstance(body, dict)
         assert body["name"] == "api.dileepa.dev"
 
-    async def test_events_is_gone_rather_than_reshaped(self, client: AsyncClient) -> None:
-        # v1 returned a bare array here. v2.0.0 does not answer this path at
-        # all, so there is no shape to keep compatible — callers move to
-        # GET /sessions and its { items, total, limit, offset } envelope.
-        assert (await client.get("/events")).status_code == 404
-        assert (await client.get("/sessions")).status_code == 200
+    async def test_events_keeps_its_path_and_changes_its_shape(self, client: AsyncClient) -> None:
+        # v1 returned a bare array of seven-field objects. v2.0.0 answers the
+        # same path with the standard envelope over the new model, so callers
+        # keep the URL and adopt the shape. The stored rows are rewritten by
+        # `scripts/migrate_events_v1_to_v2.py`.
+        response = await client.get("/events")
+        assert response.status_code == 200
+        assert set(response.json()) == {"items", "total", "limit", "offset"}
