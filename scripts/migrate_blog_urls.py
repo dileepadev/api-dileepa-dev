@@ -11,6 +11,12 @@ The old values are kept under `legacy: { link, bannerUrl, date, excerpt }` for
 one release, so the change is reversible. `scripts/rollback_blog_urls.py` puts
 them back. Drop `legacy` in v2.1.0.
 
+**Banners are retired.** Posts carry no image of their own any more — anything a
+post shows is an ordinary Markdown image in the body pointing at a URL. So the
+v1 `bannerUrl` is archived into `legacy` and `banner` is cleared, rather than
+being carried across to a new host. The `banner` field stays on the model: the
+shape is unchanged, it is simply never populated.
+
     uv run python -m scripts.migrate_blog_urls
     uv run python -m scripts.migrate_blog_urls --apply
 """
@@ -23,8 +29,6 @@ from typing import Any
 
 from app.core.config import get_settings
 from scripts._common import banner, base_parser, database, run, summarise
-
-OLD_HOST = "blog.dileepa.dev"
 
 
 def parse_date(value: Any) -> datetime | None:
@@ -78,8 +82,12 @@ async def main(args: argparse.Namespace) -> int:
                 "draft": False,
                 "featured": bool(row.get("featured", False)),
                 "readingTimeMinutes": int(row.get("readingTimeMinutes", 0) or 0),
-                "sourcePath": row.get("sourcePath") or f"content/posts/{slug}.mdx",
+                # Posts are grouped by year and month; the slug carries both.
+                "sourcePath": row.get("sourcePath")
+                or f"content/posts/{slug[:4]}/{slug[5:7]}/{slug}.md",
                 "tags": list(row.get("tags", [])),
+                # Cleared, not carried: see the module docstring.
+                "banner": None,
                 "legacy": {
                     "link": row.get("link"),
                     "bannerUrl": row.get("bannerUrl"),
@@ -89,14 +97,6 @@ async def main(args: argparse.Namespace) -> int:
             }
             if published is not None:
                 updates["publishedDate"] = published
-
-            banner_url = row.get("bannerUrl")
-            if banner_url and OLD_HOST not in str(banner_url):
-                # Already on a host that survives — Cloudinary or the old blob
-                # store. Keep it; the image migration replaces it separately.
-                updates["banner"] = {"url": banner_url, "alt": row.get("title", "")}
-            elif banner_url:
-                print(f"  ! {slug}: banner is on {OLD_HOST}. Re-upload it before applying.")
 
             print(f"  {slug}")
             print(f"      link       {row.get('link')!r}")
