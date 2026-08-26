@@ -155,8 +155,31 @@ report exactly what is wrong and what would fix it.
       as a side effect of opening a PR unless asked.
 - [ ] The title and body follow this repository's conventions.
 
-Then open it with `gh pr create`, targeting the confirmed base branch. Report the
-URL.
+Then open it with `gh pr create`, targeting the confirmed base branch.
+
+**Request a review from `dileepadev` on every PR.** Pass
+`--reviewer dileepadev` to `gh pr create`.
+
+GitHub refuses a review request from the PR's own author, so if the PR is being
+opened _as_ `dileepadev` that flag fails with "Reviews may not be requested from
+the pull request author" — and on some `gh` versions it takes the whole
+`pr create` down with it. When you are authenticated as `dileepadev`
+(check with `gh api user --jq .login`), assign instead of requesting:
+
+```bash
+gh pr create --base <base> --title "<title>" --body-file <file> --assignee dileepadev
+```
+
+Assigning is allowed on your own PR and puts it in the same place — their
+dashboard. Either way the PR must end up routed to `dileepadev`; say in your
+report which of the two you used and why.
+
+If the review request fails for any other reason — the account lacks access to
+the repository, or the name is not a collaborator — open the PR anyway and
+report that the reviewer could not be added. A PR that exists without a
+reviewer is recoverable in one click; a PR that was never opened is not.
+
+Report the URL.
 
 ---
 
