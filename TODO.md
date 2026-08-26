@@ -204,7 +204,9 @@ Scripts are written and default to dry-run. Running them against the live cluste
       names the two Google Fonts origins rather than being relaxed
 - [x] Fix the `README.md` endpoint table — including engagement and comments
 - [x] `CHANGELOG.md`; version → `2.0.0` in `pyproject.toml`, which `/version` reads
-- [ ] `VERSIONING.md` review
+- [x] `VERSIONING.md` review — the release steps still said to bump `package.json`, which this
+      repository no longer ships. Corrected to `pyproject.toml`, which is what `GET /version`
+      actually reads
 - [ ] Merge `feat/v2.0.0`; tag `v2.0.0`
 - [ ] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13)
 
