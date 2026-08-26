@@ -126,6 +126,15 @@ verified against FastAPI in production and a rollback window has passed.
   read is now bounded to one byte past the limit, and the deployment target runs in 512 MB, which
   is what made this worth fixing rather than noting. `tests/test_services.py` fails if an
   unbounded read comes back.
+- **The deployment documentation matches the platform.** FastAPI Cloud has no preview or
+  per-pull-request environments, and its GitHub integration deploys the default branch only —
+  both verified against its documentation rather than assumed. The roadmap had carried "stand
+  FastAPI up alongside NestJS on a preview deployment" as a step the platform cannot perform.
+  What replaces it is the staged DNS cutover that was always the real plan: the app's own
+  `*.fastapicloud.dev` URL serves the new build against the production database while
+  `api.dileepa.dev` still resolves to Vercel. `README.md` now carries the ordered cutover, and
+  `deploy.yml` records that a `workflow_dispatch` workflow cannot be run until it reaches the
+  default branch.
 - **The API reference is themed against the brand tokens.** `app/core/scalar_theme.py` maps the
   canonical sheet onto Scalar's `--scalar-*` names: Emerald Bright on Carbon and Emerald Deep on
   Paper, declared per theme because the guide names each on the wrong ground as a hard failure;

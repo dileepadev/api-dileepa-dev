@@ -4,6 +4,18 @@ name: Deploy
 # `workflow_dispatch` keeps a deploy a decision rather than a side effect of a
 # merge. Switch to `push: branches: [main]` once FastAPI Cloud has served
 # production traffic through a rollback window.
+#
+# NOTE: GitHub only offers the Run workflow button for a `workflow_dispatch`
+# workflow that exists on the **default branch**. While this file lives only on
+# a feature branch there is nothing to dispatch, however green the branch is.
+# Until it reaches `main`, deploy from the FastAPI Cloud VS Code extension or a
+# local `fastapi deploy` instead.
+#
+# FastAPI Cloud has no preview or per-branch environments, so this deploys the
+# one production app. What makes that safe before the cutover is DNS:
+# `api.dileepa.dev` still resolves to the NestJS deployment on Vercel, and the
+# new service is verified on its own `*.fastapicloud.dev` URL first. README
+# "Deployment" has the full order.
 on:
   workflow_dispatch:
     inputs:
@@ -24,7 +36,12 @@ jobs:
     if: inputs.confirm == 'deploy'
     environment: production
     steps:
+      # Full history: the deploy packages the working tree, and a shallow clone
+      # has bitten version detection before. Matches FastAPI Cloud's own
+      # documented workflow.
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -45,7 +62,12 @@ jobs:
 
       # Set with `fastapi cloud setup-ci`, which writes both repository secrets.
       # Application configuration is not set here — it lives in FastAPI Cloud,
-      # managed with `fastapi cloud env set`.
+      # managed with `fastapi cloud env set`, and a change there needs a
+      # redeploy to take effect.
+      #
+      # `fastapi deploy` is non-interactive when both variables are present:
+      # the token authenticates and the app id names the target, so nothing
+      # prompts. The CLI comes from `fastapi[standard]`, already locked.
       - name: Deploy
         env:
           FASTAPI_CLOUD_TOKEN: ${{ secrets.FASTAPI_CLOUD_TOKEN }}

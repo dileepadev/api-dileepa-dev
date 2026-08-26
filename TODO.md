@@ -29,7 +29,13 @@ This is an architectural migration, not a framework swap.
 - [x] Write contract tests against the current NestJS responses **first** — that is the parity
       baseline. `tests/contract/test_v1_parity.py` lists every v1.2.0 route and fails if one is
       neither served nor recorded as deliberately dropped, with a reason
-- [ ] Stand FastAPI up alongside NestJS on a preview deployment
+- [x] Stand FastAPI up alongside NestJS — **not on a preview deployment; there is no such thing.**
+      FastAPI Cloud does not support per-pull-request previews, and its GitHub integration deploys
+      the default branch only. Verified against its documentation, not assumed. What replaces it is
+      better: the app's own `*.fastapicloud.dev` URL is live the moment a deploy finishes, while
+      `api.dileepa.dev` still resolves to Vercel — so the new service runs against the real
+      production database with NestJS carrying every live request. The cutover is staged through
+      DNS rather than through branches
 
 ### Contract gaps — closed ✅
 
@@ -167,6 +173,13 @@ Scripts are written and default to dry-run. Running them against the live cluste
 - [x] CI workflow — lint, format, types, tests, and the OpenAPI spec as an artifact
 - [x] Deploy workflow, manual (`workflow_dispatch`) until the cutover is observed
 - [x] Declare the entrypoint in `pyproject.toml` (`[tool.fastapi] entrypoint`)
+> [!IMPORTANT]
+> **The deploy workflow cannot be dispatched until it is on `main`.** GitHub only shows the Run
+> workflow button for a `workflow_dispatch` workflow that exists on the default branch, so the file
+> sitting on `feat/v2.0.0` is not enough. Either merge first, or deploy from the FastAPI Cloud VS
+> Code extension or a local `fastapi deploy` — both bypass Actions entirely and need only
+> `fastapi cloud login`.
+
 - [ ] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
 - [ ] Deploy with `fastapi deploy`; `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` in CI
 - [ ] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive.
@@ -208,7 +221,12 @@ Scripts are written and default to dry-run. Running them against the live cluste
       repository no longer ships. Corrected to `pyproject.toml`, which is what `GET /version`
       actually reads
 - [ ] Merge `feat/v2.0.0`; tag `v2.0.0`
-- [ ] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13)
+- [ ] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13) — **last, and not
+      before.** Not when this branch merges, not when the first deploy succeeds, and not when the
+      domain resolves. It closes when `api.dileepa.dev` has served production traffic from FastAPI
+      Cloud through a rollback window with the Vercel deployment retired, and every box in
+      **Data migration**, **Deployment** and **Decommission** above is ticked. The issue is the only
+      thing tracking that this migration is genuinely finished rather than merely shipped
 
 ### Decommission — last, and only after both consumers are verified in production
 
