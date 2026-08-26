@@ -81,10 +81,12 @@ that file yet — or the access token has expired
 | [`about.http`](about.http) | The single about record |
 | [`profile.http`](profile.http) | experiences, educations, tools, communities, videos |
 | [`projects.http`](projects.http) | Projects. New in v2.0.0 |
-| [`sessions.http`](sessions.http) | Talks, workshops, webinars. New in v2.0.0 |
-| [`blogs.http`](blogs.http) | Blog CRUD and `POST /blogs/sync` |
+| [`events.http`](events.http) | Talks, workshops, webinars. Reshaped in v2.0.0 |
+| [`blogs.http`](blogs.http) | Blog CRUD, `POST /blogs/sync`, views and reactions |
+| [`comments.http`](comments.http) | Comments: posting, threading, reactions, moderation |
 | [`contact.http`](contact.http) | The contact form, and its tighter rate limit |
 | [`uploads.http`](uploads.http) | Cloudinary uploads, including the multipart bodies |
+| [`api_links.http`](api_links.http) | The endpoint catalogue the admin renders. Admin only |
 
 Each file ends with a `failure cases` section. Those are the requests worth
 re-running after touching auth, validation or the error envelope: they pin the

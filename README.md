@@ -285,9 +285,19 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `GET /events` · `GET /events/{slug}` | ✓ | CRUD | **Reshaped in v2.0.0** — same path, new model |
 | `GET /blogs` · `GET /blogs/{slug}` | ✓ | CRUD | Reshaped |
 | `POST /blogs/sync` | — | API key | The blog repo's pipeline |
+| `GET /blogs/{slug}/engagement` | ✓ | — | View and reaction counts, plus this caller's own reaction |
+| `POST /blogs/{slug}/views` | ✓ | — | De-duplicated per reader per 24h |
+| `POST /blogs/{slug}/reactions` | ✓ | — | Set, change, or clear one reaction |
+| `GET /blogs/{slug}/comments` | ✓ | — | The thread. **Never returns a commenter's email** |
+| `POST /blogs/{slug}/comments` | ✓ | — | Live immediately; rate-limited and honeypotted |
+| `POST /blogs/{slug}/comments/{id}/reactions` | ✓ | — | Same four reactions; works on replies too |
+| `GET /comments` | — | ✓ | The moderation queue. **Not public** — it holds emails |
+| `POST /comments` | — | ✓ | The owner's own reply, badged as the author |
+| `PATCH /comments/{id}` · `DELETE /comments/{id}` | — | ✓ | Hide (reversible) or delete (permanent) |
 | `POST /uploads` | — | ✓ or API key | Cloudinary-backed |
 | `GET /uploads` · `DELETE /uploads/{publicId}` | — | ✓ | |
 | `POST /contact` | ✓ | — | Rate-limited harder than anything else |
+| `GET /api-links` | — | ✓ | The endpoint catalogue the admin renders. **New in v2.0.0** |
 | `GET /health` | ✓ | — | 503 when MongoDB is unreachable |
 | `GET /version` | ✓ | — | |
 | `GET /` | ✓ | — | What this service is, and where the docs are |
@@ -296,6 +306,16 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 Every collection also takes `PATCH /{resource}/order` for bulk reordering, and
 `POST` / `PATCH /{id}` / `DELETE /{id}` for admin writes. `PATCH` is a partial
 update: only the fields sent are changed.
+
+**`order` sorts descending — higher values first.** The semantic every resource
+inherited from v1's `index: -1`. An admin screen showing positions 1..N maps the
+top row to the *highest* number; the admin does that inversion in one place
+rather than the API changing a convention seven collections depend on.
+
+**Engagement and comments are the only public writes** besides the contact form.
+Neither collects an identity: both key on a salted hash of the caller's address,
+which is enough to recognise a repeat and not enough to reconstruct who it was.
+Detail in [`dileepadev/docs/architecture/api-contract.md`](https://github.com/dileepadev/dileepadev/blob/main/docs/architecture/api-contract.md).
 
 ### Removed from v1
 

@@ -102,6 +102,34 @@ All four are decided and implemented; `api-contract.md` §10 records them.
 - [x] Every new resource gets a stable, unique, indexed `slug`
 - [x] Dates become real datetimes on events and blogs. Videos and communities keep their
       strings, because nothing sorts on them
+- [x] **`description` on videos** — optional, because every row that predates the field has
+      nothing to put in it and a required field would fail validation on read
+
+### Blog engagement and comments ✅
+
+Added after the v2.0.0 contract was drafted. All three are public writes, and none collects an
+identity: each keys on a salted hash of the caller's address, which recognises a repeat without
+being reversible into one.
+
+- [x] **Views** — `POST /blogs/{slug}/views`, de-duplicated per reader per 24h. The dedup is a
+      unique index on `blog_views` plus a TTL, not a check in the handler: a read-then-write lets
+      two concurrent requests both decide they are first
+- [x] **Reactions** — four kinds, one per reader, changeable and clearable. `POST /blogs/{slug}/reactions`
+- [x] **Comments** — `GET`/`POST /blogs/{slug}/comments`. Visible immediately, no approval queue,
+      so the defences are at the door: `RATE_LIMIT_COMMENT`, length bounds, a honeypot, and a
+      depth cap of one
+- [x] **Comment reactions** — the same four, on comments and replies alike
+- [x] **`PublicComment` has no field for an email address**, so the public endpoints cannot leak
+      one. The admin-only `Comment` carries it. Two classes rather than one with a flag
+- [x] Moderation: `GET`/`POST`/`PATCH`/`DELETE /comments`, admin-only on **every** route
+      including the list — the one collection `crud_router` could not build, because its list
+      route is public by design
+- [x] `app/services/reactions.py` — the toggle rule, written once and shared. Two copies would
+      drift into a count that no longer matches the records behind it
+- [x] Counts are absent from `BlogCreate`, `BlogUpdate` and `BlogSync`, so neither an admin edit
+      nor a content re-sync can overwrite them
+- [ ] Consider a `commentCount` on the post, so the blog index can show it without fetching
+      every thread
 
 **No deprecated aliases.** v2.0.0 ships as a single cutover — the API and every consumer released
 together — so no v1 path is carried and nothing is scheduled for later removal.
@@ -171,7 +199,7 @@ Scripts are written and default to dry-run. Running them against the live cluste
 - [x] Publish the OpenAPI spec so both frontends can generate typed clients — CI uploads
       `openapi.json` on every build
 - [ ] Theme Scalar against the brand tokens
-- [x] Fix the `README.md` endpoint table
+- [x] Fix the `README.md` endpoint table — including engagement and comments
 - [x] `CHANGELOG.md`; version → `2.0.0` in `pyproject.toml`, which `/version` reads
 - [ ] `VERSIONING.md` review
 - [ ] Merge `feat/v2.0.0`; tag `v2.0.0`

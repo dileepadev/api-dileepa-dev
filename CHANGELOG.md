@@ -26,6 +26,25 @@ verified against FastAPI in production and a rollback window has passed.
   and the same collections. Nothing is re-seeded.
 - **`/projects`** — full model with slug, status, period, stack, gallery,
   metrics and SEO, plus CRUD and filters. Net-new; nothing existed before.
+- **Blog engagement** — `GET /blogs/{slug}/engagement`, `POST /blogs/{slug}/views`
+  and `POST /blogs/{slug}/reactions`. Views de-duplicate per reader per 24 hours
+  through a unique index and a TTL on `blog_views`, not through a check in the
+  handler: a read-then-write lets two concurrent requests both conclude they are
+  the first, which is exactly how a view counter loses counts. Four reactions,
+  one per reader, changeable and clearable.
+- **Blog comments** — `GET`/`POST /blogs/{slug}/comments`, one level of replies,
+  and `POST /blogs/{slug}/comments/{id}/reactions` carrying the same four
+  reactions. Comments are visible the moment they are posted; there is no
+  approval queue, so the defences are at the door — `RATE_LIMIT_COMMENT`, length
+  bounds, a honeypot that answers 201 and stores nothing, and a depth cap that
+  re-parents rather than rejects.
+- **Comment moderation** — `GET`/`POST`/`PATCH`/`DELETE /comments`, admin-only on
+  every route including the list. `PublicComment` has no field for an email
+  address and so cannot serialise one; the admin-only `Comment` does. Two classes
+  rather than one with a flag, because a field that is sometimes secret is a
+  field that eventually gets returned by accident.
+- `description` on videos. Optional: every row that predates the field has
+  nothing to put in it, and a required field would fail validation on read.
 - `?hasPhotos=` on `/events`, for the main site's event gallery. Expressed as a
   query rather than a fetch-and-filter, so `total` stays truthful and the
   gallery can be paged.

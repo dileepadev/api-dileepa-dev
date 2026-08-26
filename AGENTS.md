@@ -44,7 +44,7 @@ working until the cutover.
 | `app/repositories/` | `DocumentRepository`, with a Mongo and an in-memory implementation |
 | `app/routers/crud.py` | The CRUD router factory the five ported resources are built from |
 | `app/routers/` | One module per resource |
-| `app/services/` | Resend and Cloudinary, the only two outbound integrations |
+| `app/services/` | Resend and Cloudinary, the two outbound integrations, plus `reactions.py` — the toggle rule posts and comments share |
 | `scripts/` | Migration and operations scripts. Every writer takes `--apply` |
 | `tests/` | Offline suite. `tests/contract/` holds the v1 parity baseline |
 | `http/` | Runnable requests, one file per router module. VS Code REST Client |
@@ -175,8 +175,15 @@ are verified against FastAPI in production and a rollback window has passed.
 
 ## Gotchas
 
-- **`projects` is net-new.** `admin-dileepa-dev`'s README advertises "Projects & Tools"
-  management and only `tools` ever existed. The API side is built; admin and site are not.
+- **`projects` is net-new**, and now built end to end — API, admin screen, and site routes.
+- **Comments are the one collection `crud_router` cannot build.** That helper's list route is
+  public by design, and `/comments` holds email addresses, so its routes are written out with
+  `CurrentUser` on every one of them, the list included. If you add a collection holding anything
+  a person gave in confidence, check which door you are opening before reaching for the factory.
+- **Engagement counters are server-owned.** `views` and `reactions` are absent from `BlogCreate`,
+  `BlogUpdate` and `BlogSync` on purpose, so an admin edit or a content re-sync cannot overwrite
+  them. `/blogs/sync` writes with `$set` over the fields it sends — adding one of these to that
+  model would silently zero a counter on the next push.
 - **`events` is far thinner than it looks** — `title`, `date` (string), `location`, `format`,
   `description`, `url`, `index`. No speakers, photos, recordings, slug, status, or structured
   time. `events` keeps its path and its collection name, and is a new model rather than a rename.
