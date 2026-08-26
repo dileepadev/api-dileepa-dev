@@ -307,6 +307,15 @@ Every collection also takes `PATCH /{resource}/order` for bulk reordering, and
 `POST` / `PATCH /{id}` / `DELETE /{id}` for admin writes. `PATCH` is a partial
 update: only the fields sent are changed.
 
+Every collection also serves a single record at `GET /{resource}/{id}`. Where a
+resource carries a slug the same route accepts either, which is why the rows
+above name `{slug}` for projects, events and blogs and the five profile
+collections take an id. `/about` is the exception in both directions: it is a
+singleton, so it has no id and no single-record route of its own.
+
+`GET /api-json` serves the OpenAPI document behind `/docs`. Like the reference
+itself it is registered only outside production.
+
 **`order` sorts descending — higher values first.** The semantic every resource
 inherited from v1's `index: -1`. An admin screen showing positions 1..N maps the
 top row to the *highest* number; the admin does that inversion in one place
