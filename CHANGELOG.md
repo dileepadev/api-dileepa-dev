@@ -69,6 +69,15 @@ and promoting the consumers.
   recognised and skipped, so a failed run is simply re-run. Restoring is
   `db.events_v1_backup.aggregate([{ $out: "events" }])`.
 
+- **`commentCount` on every blog post.** Denormalised so the blog index can show
+  "12 comments" without reading a single thread -- computing it on read is exactly
+  what the field exists to avoid. Maintained with `$inc` on the four paths that
+  can change it: a public post, an owner reply, a publish/unpublish, and a
+  delete. Replies count, because a reply is a comment; a honeypot hit does not,
+  because nothing was stored; and hiding a comment then deleting it subtracts
+  once, not twice. `scripts/reconcile_comment_counts.py` recomputes the number
+  from the comments themselves, which is both the backfill for posts that
+  predate the field and the repair for any future drift.
 - **Deployed on FastAPI Cloud**, replacing Vercel serverless. `pyproject.toml`
   declares the entrypoint under `[tool.fastapi]`;
   [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys with a
@@ -110,14 +119,14 @@ and promoting the consumers.
   respected — time passing does not un-cancel an event.
 - **Blog posts carry a relative `path` and a composed `canonicalUrl`** instead
   of an absolute `link` on `blog.dileepa.dev`, a real `publishedDate` datetime
-  instead of a date string, and `description` instead of `excerpt`. Old values
-  are kept under `legacy` for one release.
+  instead of a date string, and `description` instead of `excerpt`. The old values
+  were kept under a `legacy` field during the migration and are dropped in this
+  release -- see *Removed*.
 - **Blog banners are retired.** Posts carry no image of their own; anything a
   post shows is an ordinary Markdown image in the body pointing at a URL. The
   `banner` field **stays on the model** — removing a field from a response is
   breaking for every consumer that reads it, and buys nothing — and is written
-  by nothing. `scripts/migrate_blog_urls.py` clears it and archives the v1
-  `bannerUrl` into `legacy`.
+  by nothing. `scripts/migrate_blog_urls.py` clears it.
 - `POST /blogs/sync` accepts a relative `path`, derives visibility from the
   front matter's `draft` rather than accepting `published` directly, and no
   longer accepts a banner.
@@ -199,6 +208,14 @@ and promoting the consumers.
   with a single toolchain. The v1 route table lives on in
   `tests/contract/test_v1_parity.py`, hardcoded rather than derived from the
   deleted sources, so parity coverage is unaffected.
+- **The `legacy` field on blog rows.** It held the v1 `link`, `bannerUrl`, `date`
+  and `excerpt` so the URL rewrite stayed reversible for one release. That
+  release is this one: the rewrite is verified in production, every post is
+  canonical on `dileepa.dev`, and the field is gone from the model and from
+  every stored row. The values were copied into `blogs_v1_legacy_backup` first,
+  the same way `events_v1_backup` holds the v1 events, so the record survives
+  without a field nothing reads. `scripts/rollback_blog_urls.py` is removed with
+  it -- it existed only to reverse the rewrite through `legacy`.
 - Azure Blob Storage. Cloudinary is the only image backend.
 - **`POST /auth/sign-in`.** Use `POST /auth/login` — same body, same token
   shape, including v1's `access_token` field name.

@@ -33,12 +33,14 @@ from app.repositories.base import Document, DocumentRepository, Filters, Sort, i
 # newest first as a stable tiebreak.
 #
 # `index` is in the key list because sorting happens in the database, before the
-# model's `order`/`index` alias applies. A collection the backfill has not
-# reached yet has no `order` field at all, so every document ties at null and
-# `index` restores exactly the v1 order. After the backfill `index` is gone and
-# this key is inert. A half-migrated collection sorts v2 documents above v1
-# ones, which is why `scripts/migrate_v1_documents.py` runs to completion before
-# traffic moves — see TODO.md.
+# model's `order`/`index` alias applies. A collection the backfill had not
+# reached had no `order` field at all, so every document tied at null and
+# `index` restored exactly the v1 order.
+#
+# Every collection in production now carries `order` and none carries `index`,
+# so this key is inert. It stays as the cheap half of a cheap-vs-wrong trade:
+# a v1-shaped document arriving from anywhere would otherwise sort above every
+# migrated one instead of into its right place.
 DEFAULT_SORT: Sort = [("order", -1), ("index", -1), ("createdAt", -1), ("_id", -1)]
 
 

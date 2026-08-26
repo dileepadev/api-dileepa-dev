@@ -244,8 +244,11 @@ class Settings(BaseSettings):
 
     @property
     def cors_origin_regex(self) -> str:
-        # Vercel preview deployments get a fresh hostname per build, so they
-        # cannot be enumerated in an allowlist. Never widen this to `.*`.
+        # This is for the **front ends**, which are still on Vercel:
+        # `dileepa-dev` and `admin-dileepa-dev` get a fresh preview hostname per
+        # build, so they cannot be enumerated in an allowlist. It has nothing to
+        # do with the API's own retired Vercel deployment -- that is gone, and
+        # this pattern is still needed. Never widen it to `.*`.
         return r"https://[a-z0-9-]+-dileepadev-projects\.vercel\.app"
 
     @property

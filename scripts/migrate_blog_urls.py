@@ -7,13 +7,14 @@ stops serving. Before running it with `--apply`:
 2. Run this without `--apply` and read the diff it prints.
 3. Only then apply.
 
-The old values are kept under `legacy: { link, bannerUrl, date, excerpt }` for
-one release, so the change is reversible. `scripts/rollback_blog_urls.py` puts
-them back. Drop `legacy` in v2.1.0.
+The v1 values are not archived. They were kept under a `legacy` field for one
+release so this rewrite could be reversed; that release is v2.0.0, the rewrite
+is verified in production, and the field has been dropped from the model and
+from the stored rows.
 
 **Banners are retired.** Posts carry no image of their own any more — anything a
 post shows is an ordinary Markdown image in the body pointing at a URL. So the
-v1 `bannerUrl` is archived into `legacy` and `banner` is cleared, rather than
+v1 `bannerUrl` is discarded and `banner` is cleared, rather than
 being carried across to a new host. The `banner` field stays on the model: the
 shape is unchanged, it is simply never populated.
 
@@ -65,7 +66,12 @@ async def main(args: argparse.Namespace) -> int:
             counts["rows seen"] += 1
             slug = str(row.get("slug", ""))
 
-            if "path" in row and "legacy" in row:
+            # `path` is written by this script and by nothing else, so its
+            # presence is the migration marker. It used to be paired with
+            # `legacy`; that field has since been dropped, and checking for it
+            # here would re-migrate every already-migrated row -- overwriting
+            # `description` with an `excerpt` that no longer exists.
+            if row.get("path"):
                 counts["already migrated"] += 1
                 continue
 
@@ -88,12 +94,6 @@ async def main(args: argparse.Namespace) -> int:
                 "tags": list(row.get("tags", [])),
                 # Cleared, not carried: see the module docstring.
                 "banner": None,
-                "legacy": {
-                    "link": row.get("link"),
-                    "bannerUrl": row.get("bannerUrl"),
-                    "date": row.get("date"),
-                    "excerpt": row.get("excerpt"),
-                },
             }
             if published is not None:
                 updates["publishedDate"] = published

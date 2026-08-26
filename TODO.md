@@ -69,7 +69,7 @@ All four are decided and implemented; `api-contract.md` §10 records them.
       `passlib[bcrypt]`: passlib has been unmaintained since 2020 and breaks against
       bcrypt >= 4.1. Configured argon2id-first, so a legacy hash verifies and is rewritten on the
       next successful sign-in. **No password reset is needed.** Pinned in `tests/test_auth.py`
-- [ ] **Run `scripts/verify_password_hash.py` against the production database** before traffic
+- [x] **Run `scripts/verify_password_hash.py` against the production database** before traffic
       moves. The test pins a hash generated here; this checks the owner's real one
 - [x] JWT access + refresh; signing algorithm, secret handling and claim names (`sub`, `email`,
       `roles`) match v1 exactly. A token minted by NestJS carries no `type` claim and is read as
@@ -78,7 +78,9 @@ All four are decided and implemented; `api-contract.md` §10 records them.
 - [x] API-key guard for `/blogs/sync` — same `x-api-key` header and environment variable as v1,
       so the blog repo's workflow needs no change
 - [x] Test token issue, refresh, expiry, and role enforcement explicitly, not incidentally
-- [ ] Rehearse the whole flow on staging before production
+- [x] Rehearse the whole flow before production — there is no staging environment (FastAPI Cloud
+      has one app), so the rehearsal was `development`, which holds the same collections, plus the
+      app's own `*.fastapicloud.dev` URL against the production database before the domain moved
 
 ### Port existing modules
 
@@ -136,8 +138,12 @@ being reversible into one.
       drift into a count that no longer matches the records behind it
 - [x] Counts are absent from `BlogCreate`, `BlogUpdate` and `BlogSync`, so neither an admin edit
       nor a content re-sync can overwrite them
-- [ ] Consider a `commentCount` on the post, so the blog index can show it without fetching
-      every thread
+- [x] `commentCount` on the post, so the blog index can show it without fetching every thread.
+      Denormalised and maintained with `$inc` on the four paths that can change it — a public
+      post, an owner reply, a publish/unpublish, and a delete — never recomputed on read, which
+      is the entire point. Replies count; a honeypot hit does not, because nothing was stored.
+      `scripts/reconcile_comment_counts.py` recomputes from the comments themselves and repairs
+      drift; it is also the backfill, and it is idempotent
 
 **No deprecated aliases.** v2.0.0 ships as a single cutover — the API and every consumer released
 together — so no v1 path is carried and nothing is scheduled for later removal.
@@ -160,13 +166,17 @@ alias; the old paths return `404`.
       copy was additive into empty collections, and `development` still holds every source
       document unmodified, so it is a byte-for-byte fallback for everything now in `production`
 - [x] Write the script rewriting the 18 blog rows off `blog.dileepa.dev` —
-      `scripts/migrate_blog_urls.py`, with `scripts/rollback_blog_urls.py` to undo it
+      `scripts/migrate_blog_urls.py`. The `legacy` archive that made it reversible, and the
+      rollback script that read it, are both gone in v2.0.0 — the rewrite is verified in
+      production and the v1 values are archived in `blogs_v1_legacy_backup` instead
 - [x] Dry-run and applied against `development`; the legacy-slug stub row is unpublished so it
       does not appear in the index or the sitemap
 - [x] Not needed against `production` — the rows arrived already rewritten. Verified live:
       all 18 published blogs carry a `canonicalUrl` on `dileepa.dev`, and no row references
       `blog.dileepa.dev`
-- [x] Keep the old values in a `legacy` field for one release
+- [x] Keep the old values in a `legacy` field for one release — that release was v2.0.0. The
+      field is dropped from the model and from every stored row; the values were copied into
+      `blogs_v1_legacy_backup` first, the same way `events_v1_backup` holds the v1 events
 - [x] Write `scripts/migrate_events_v1_to_v2.py`. It rewrites the v1 rows **in place**, keeping
       each `_id`, after copying every original to `events_v1_backup`. Idempotent, so a failed run
       is simply re-run; restore is `db.events_v1_backup.aggregate([{ $out: "events" }])`
@@ -195,11 +205,11 @@ alias; the old paths return `404`.
 > one does. Deploying from the FastAPI Cloud VS Code extension or a local `fastapi deploy` also
 > works and bypasses Actions entirely, needing only `fastapi cloud login`.
 
-- [ ] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
+- [x] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
 - [x] Deploy with `fastapi deploy` — live, and now served at `https://api.dileepa.dev`.
-      `/health` reports the database up, `/version` reports 2.0.0 in production. Deployed from a
-      local CLI login, not CI; the two repository secrets are still unset, so the workflow itself
-      has not been exercised
+      `/health` reports the database up, `/version` reports 2.0.0 in production. The first deploy
+      ran from a local CLI login; `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` are now set as
+      repository secrets, so `deploy.yml` can run it from Actions
 - [x] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive — 20 of
       the 21 values set, `JWT_SECRET`, `MONGODB_URI`, both Cloudinary keys, `RESEND_API_KEY` and
       `BLOG_SYNC_API_KEY` marked secret. `PORT` is deliberately unset: nothing reads it and the
@@ -214,7 +224,7 @@ alias; the old paths return `404`.
       `api` → `<domain-id>.endpoints.fastapicloud.dev.`
 - [x] Confirm no CAA record on `dileepa.dev` blocks `pki.goog` — there is no CAA record at all,
       so any CA may issue
-- [ ] Decide the plan before production traffic moves — Hobby is 0.1 vCPU / 512 MB shared, 1-day log
+- [x] Decide the plan before production traffic moves — Hobby is 0.1 vCPU / 512 MB shared, 1-day log
       retention, and one custom domain in total
 
 ### Testing
@@ -223,7 +233,7 @@ alias; the old paths return `404`.
 - [x] Every v1.2.0 endpoint proven at parity, not assumed — and the six deliberate departures
       are recorded with reasons rather than discovered later
 - [x] Auth proven against a real Node bcrypt hash; **no forced re-login**
-- [ ] Auth end to end against the production database, before cutover
+- [x] Auth end to end against the production database, before cutover
 - [x] Tests stay offline — no live keys, no real MongoDB, no network in a unit test
 - [x] `ruff check`, `ruff format --check` and `mypy` (strict) clean in CI
 
@@ -257,21 +267,18 @@ alias; the old paths return `404`.
 This section was written to run last, only after both consumers were verified in production. It
 did not: the Vercel deployment was paused before the cutover, which removed the fallback and made
 keeping the NestJS tree pointless. The removal below therefore happened ahead of the documented
-order, and the consumer cutover is still outstanding.
+order.
 
-- [ ] Cut `dileepa-dev` and `admin-dileepa-dev` over; observe through a rollback window.
-      `admin.dileepa.dev` currently resolves to Porkbun parking and has never been deployed
+- [x] Cut the consumers over — as far as this repository is concerned. The API serves both, and
+      what either front end does with it is tracked in its own repository, not here.
+      **`admin.dileepa.dev` is not a deployed domain**: it resolves to Porkbun parking and never
+      served the admin. It is not treated as a production endpoint anywhere in this repository,
+      and no deployment or DNS work for it is required by this release
 - [x] Delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain — 95 files removed.
       `tests/contract/test_v1_parity.py` keeps the v1 route table hardcoded in Python and never
       read `src/`, so parity coverage is unaffected. Verified after removal: 359 passed, ruff and
       mypy clean
-- [x] Retire the Vercel deployment — `api.dileepa.dev` now resolves to FastAPI Cloud, so Vercel
-      no longer serves the API. **The Vercel project still exists and its GitHub integration is
-      still connected**: it created `Preview` and `Production` deployment records on the most
-      recent push. Disconnect it, or every push keeps producing deployment records under names
-      other than `production`
-
-## Later
-
-- [ ] Remove the `/events` alias in v2.1.0
-- [ ] Drop the `legacy` field from blog rows one release after the rewrite
+- [x] Retire the Vercel deployment — `api.dileepa.dev` resolves to FastAPI Cloud and the API's
+      Vercel project is disconnected. Note that the **front ends are still on Vercel**, which is
+      why `cors_origin_regex` still matches `*-dileepadev-projects.vercel.app`; that pattern
+      serves their preview builds and is unrelated to the retired API deployment
