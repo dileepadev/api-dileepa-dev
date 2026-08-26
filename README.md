@@ -388,7 +388,16 @@ needs.
 
 `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` come from
 `fastapi cloud setup-ci`, which writes both repository secrets. Pass
-`--branch` if the deploy branch should not be `main`.
+`--branch` if the deploy branch should not be `main`. Both are set, and the
+workflow has run green end to end from Actions.
+
+The job declares `environment: production`, and that is the **only** deployment
+environment this repository uses. The name is not cosmetic: GitHub's
+[Deployments](https://github.com/dileepadev/api-dileepa-dev/deployments) page
+groups by environment name, so a second name would split one service's history
+across two headings. The workflow is also the only thing that writes a
+deployment record — a `fastapi deploy` from a terminal deploys the app but
+creates no entry there.
 
 Application configuration is separate from those two, and is set with
 `fastapi cloud env set`, using `--secret` for anything sensitive. Those values
