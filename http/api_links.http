@@ -1,0 +1,37 @@
+# API links — the endpoint catalogue the admin dashboard renders.
+#
+# Admin only. Nothing on the public website reads this, and it describes routes
+# rather than serving content: what it returns is which endpoint each admin
+# screen talks to and what that endpoint expects.
+#
+# It is derived from the live route table, so it is also the fastest way to
+# check what this deployment actually serves — including whether an endpoint
+# you have just added is registered.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+
+### Every group. One per OpenAPI tag, in the order the reference lists them.
+GET {{baseUrl}}/api-links
+Authorization: Bearer {{accessToken}}
+
+### Paged, like every other collection.
+GET {{baseUrl}}/api-links?limit=3&offset=0
+Authorization: Bearer {{accessToken}}
+
+### --- failure cases ---
+
+### Without a token -> 401 missing_token. This is what keeps it out of the
+# public website: dileepa.dev has no credentials and never will.
+GET {{baseUrl}}/api-links
+
+### A token that is not an admin's -> 403 insufficient_role.
+GET {{baseUrl}}/api-links
+Authorization: Bearer not-a-real-token

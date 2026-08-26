@@ -37,14 +37,18 @@ All notable changes are documented in the [CHANGELOG.md](CHANGELOG.md) file.
 1. Complete all features and fixes planned for the release
 2. Update the `CHANGELOG.md` with categorized entries:  
    - **Added**, **Changed**, **Fixed**, **Removed**
-3. Bump the version number in `package.json` (and `package-lock.json` if needed)
+3. Bump `version` in [`pyproject.toml`](pyproject.toml). That is the single
+   source of truth: `GET /version` reads it, through package metadata on a
+   deployed install and by reading the file itself when running from a
+   checkout. There is no version to bump in `package.json` — the NestJS
+   application under `src/` is retired and is not what this repository ships.
 4. Commit changes with a version-related message (e.g. `chore: release v1.2.0`)
 5. Tag the release:
 
    ```bash
    git tag v1.2.0
    git push origin v1.2.0
-    ````
+   ```
 
 6. (Optional) Create a GitHub release and paste the relevant changelog section
 

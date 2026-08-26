@@ -1,0 +1,183 @@
+# Comments — public to post and read, authenticated to moderate.
+#
+# Comments are visible the moment they are posted. There is no approval queue,
+# so the defences are all at the door: a hard rate limit (RATE_LIMIT_COMMENT,
+# 6/minute), length bounds on the model, a depth cap of one, and a honeypot.
+#
+# Two audiences, two shapes. /blogs/{slug}/comments returns PublicComment,
+# which has no field for an email address and therefore cannot leak one.
+# /comments returns Comment, which does — and requires a token on EVERY route,
+# the list included. That is why these routes are written out rather than built
+# with crud_router, whose list route is deliberately public.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+@slug = example-post
+
+# ================================ public ================================
+
+### Read the thread. Top-level comments, each with its replies, oldest first —
+# a conversation reads top to bottom.
+GET {{baseUrl}}/blogs/{{slug}}/comments
+
+### Post one. `slug` comes from the path and is not accepted in the body.
+# @name comment
+POST {{baseUrl}}/blogs/{{slug}}/comments
+Content-Type: application/json
+
+{
+  "author": "Anna",
+  "email": "anna@example.com",
+  "body": "Useful walkthrough — the bit about pinning the ref was the part I was missing."
+}
+
+###
+
+@commentId = {{comment.response.body.$.comment.id}}
+
+### Reply to it. Depth is capped at one.
+POST {{baseUrl}}/blogs/{{slug}}/comments
+Content-Type: application/json
+
+{
+  "author": "Dileepa",
+  "body": "Glad it helped.",
+  "parentId": "{{commentId}}"
+}
+
+### Reply to the reply -> re-parented to the same thread, not a third level.
+# The reader did nothing wrong, so this is not an error.
+POST {{baseUrl}}/blogs/{{slug}}/comments
+Content-Type: application/json
+
+{
+  "author": "Sam",
+  "body": "Same question here.",
+  "parentId": "{{commentId}}"
+}
+
+# =============================== reactions ===============================
+#
+# The same four as a post — liked | insightful | useful | learned — applied by
+# the same service. Replies are comments, so this route works on them too and
+# there is no second one.
+
+### React to a comment.
+POST {{baseUrl}}/blogs/{{slug}}/comments/{{commentId}}/reactions
+Content-Type: application/json
+
+{ "reaction": "insightful" }
+
+### Change it. The previous count goes down as the new one goes up.
+POST {{baseUrl}}/blogs/{{slug}}/comments/{{commentId}}/reactions
+Content-Type: application/json
+
+{ "reaction": "useful" }
+
+### Press the one already chosen -> clears it.
+POST {{baseUrl}}/blogs/{{slug}}/comments/{{commentId}}/reactions
+Content-Type: application/json
+
+{ "reaction": "useful" }
+
+### Read the thread back: each comment carries its counts and whatever THIS
+### caller chose, fetched in one query across the thread rather than one per
+### comment.
+GET {{baseUrl}}/blogs/{{slug}}/comments
+
+### Reacting through a post the comment does not belong to -> 404. The slug in
+### the path is checked against the comment; it is not decorative.
+POST {{baseUrl}}/blogs/some-other-post/comments/{{commentId}}/reactions
+Content-Type: application/json
+
+{ "reaction": "liked" }
+
+# =============================== moderation ==============================
+
+### Every comment, hidden ones included, newest first. 401 without the token.
+GET {{baseUrl}}/comments
+Authorization: Bearer {{accessToken}}
+
+### Just one post's.
+GET {{baseUrl}}/comments?slug={{slug}}
+Authorization: Bearer {{accessToken}}
+
+### Only the hidden ones.
+GET {{baseUrl}}/comments?published=false
+Authorization: Bearer {{accessToken}}
+
+### Reply as the author. The ONLY path that sets `authorIsOwner` — a reader
+### cannot claim the badge, because the public model has no field for it and
+### extra fields are forbidden. Not rate limited: it needs a token.
+POST {{baseUrl}}/comments
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "slug": "{{slug}}",
+  "author": "Dileepa",
+  "body": "Glad it helped — the pinned ref trips people up.",
+  "parentId": "{{commentId}}"
+}
+
+### Hide one. Reversible, and the replies under it survive — they are promoted
+### to top level rather than vanishing with their parent.
+PATCH {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "published": false }
+
+### Put it back.
+PATCH {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "published": true }
+
+### Delete. Permanent — prefer hiding unless the content has to go.
+DELETE {{baseUrl}}/comments/{{commentId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= failure cases =============================
+
+### The honeypot. A field no human can see, so anything that fills it is a bot.
+### Returns 201 and stores nothing: telling a bot which field caught it is how
+### it learns to stop tripping it. `accepted` is false.
+POST {{baseUrl}}/blogs/{{slug}}/comments
+Content-Type: application/json
+
+{ "author": "Bot", "body": "Cheap watches", "honeypot": "http://spam.example" }
+
+### Naming a different post -> 422. `CommentCreate` has no `slug` field and
+### extra fields are forbidden, so this cannot be quietly ignored either.
+POST {{baseUrl}}/blogs/{{slug}}/comments
+Content-Type: application/json
+
+{ "author": "Anna", "body": "Hi", "slug": "some-other-post" }
+
+### Empty body -> 422.
+POST {{baseUrl}}/blogs/{{slug}}/comments
+Content-Type: application/json
+
+{ "author": "Anna", "body": "" }
+
+### Commenting on an unpublished post -> 404, not 403.
+POST {{baseUrl}}/blogs/example-draft/comments
+Content-Type: application/json
+
+{ "author": "Anna", "body": "Hi" }
+
+### Listing without a token -> 401. This is the one collection an anonymous
+### caller cannot list, because it holds email addresses.
+GET {{baseUrl}}/comments
+
+### Moderating without a token -> 401.
+DELETE {{baseUrl}}/comments/{{commentId}}

@@ -1,0 +1,23 @@
+# Meta — health, version, and the service root.
+#
+# Nothing here needs a token. Start with these: if `/health` reports the
+# database as down, every other file in this directory will fail in ways that
+# look like bugs in the endpoint rather than in the connection.
+
+### The service root. Says what this is and where the docs are.
+GET {{baseUrl}}/
+
+### Liveness, and whether MongoDB is actually reachable.
+# 200 with "status": "ok"       -> database up
+# 200 with "status": "degraded" -> the API is running, the database is not
+GET {{baseUrl}}/health
+
+### Version and environment. Worth checking before anything destructive:
+# this is what tells you which environment you are actually pointed at.
+GET {{baseUrl}}/version
+
+### The OpenAPI document. Development only — 404 in production, by design.
+GET {{baseUrl}}/api-json
+
+### The Scalar API reference. Development only, same as above.
+GET {{baseUrl}}/docs

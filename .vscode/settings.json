@@ -1,0 +1,69 @@
+{
+  "cSpell.words": [
+    "Abstra",
+    "celerybeat",
+    "codz",
+    "colour",
+    "colours",
+    "Connor",
+    "cutover",
+    "datetimes",
+    "dateutil",
+    "dmypy",
+    "ehthumbs",
+    "envrc",
+    "eslintcache",
+    "frontends",
+    "frontmatter",
+    "htmlcov",
+    "ipynb",
+    "ipython",
+    "licence",
+    "marimo",
+    "mnesia",
+    "nosetests",
+    "passlib",
+    "pids",
+    "pipenv",
+    "Pipfile",
+    "pluralised",
+    "pwdlib",
+    "pybuilder",
+    "pyenv",
+    "pyflow",
+    "pypa",
+    "pypackages",
+    "pypirc",
+    "pytype",
+    "rebranded",
+    "Repoint",
+    "repointed",
+    "Retarget",
+    "retargeted",
+    "retargets",
+    "reusably",
+    "ropeproject",
+    "scrapy",
+    "sdist",
+    "Shiki",
+    "spyderproject",
+    "spyproject",
+    "unparseable",
+    "urlsafe",
+    "webassets",
+    "xtwitter"
+  ],
+  "rest-client.environmentVariables": {
+    "$shared": {
+      "adminEmail": "{{$processEnv API_ADMIN_EMAIL}}",
+      "adminPassword": "{{$processEnv API_ADMIN_PASSWORD}}",
+      "blogSyncApiKey": "{{$processEnv API_BLOG_SYNC_KEY}}"
+    },
+    "development": {
+      "baseUrl": "http://localhost:8000"
+    },
+    "production": {
+      "baseUrl": "https://api.dileepa.dev"
+    }
+  }
+}

@@ -1,0 +1,50 @@
+# Contact — the public contact form.
+#
+# Rate limited harder than anything else: RATE_LIMIT_CONTACT, 3/minute by
+# default. Run the last request in this file a few times in a row to see the
+# 429, then wait a minute before running anything else here.
+#
+# This sends a REAL email through Resend when RESEND_API_KEY is set. Point at a
+# development environment, or leave the key empty and expect a 503.
+
+### Send a message.
+POST {{baseUrl}}/contact
+Content-Type: application/json
+
+{
+  "name": "Example Sender",
+  "email": "sender@example.com",
+  "subject": "Hello",
+  "message": "A message long enough to pass validation."
+}
+
+# ============================= failure cases =============================
+
+### A malformed address -> 422.
+POST {{baseUrl}}/contact
+Content-Type: application/json
+
+{
+  "name": "Example Sender",
+  "email": "not-an-email",
+  "subject": "Hello",
+  "message": "A message long enough to pass validation."
+}
+
+### Missing fields -> 422 listing each one.
+POST {{baseUrl}}/contact
+Content-Type: application/json
+
+{ "name": "Example Sender" }
+
+### Run this four times inside a minute. The fourth is 429 rate_limited, with
+# a Retry-After header.
+POST {{baseUrl}}/contact
+Content-Type: application/json
+
+{
+  "name": "Rate Limit Probe",
+  "email": "sender@example.com",
+  "subject": "Probe",
+  "message": "Checking that the contact limiter still bites."
+}

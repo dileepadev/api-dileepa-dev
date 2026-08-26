@@ -1,0 +1,353 @@
+# Profile — experiences, educations, tools, communities, videos.
+#
+# Five resources with no behaviour of their own, so they are one file, the same
+# way they are one module in app/routers/profile.py. Each block is identical:
+# public list, admin create, read one, update, reorder, delete. That uniformity
+# is the point — a resource that needed something different would have its own
+# module, and its own file here.
+#
+# Collection responses are always { items, total, limit, offset }.
+# `order` means priority: higher values sort first.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+
+# ============================= experiences =============================
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/experiences
+
+### With paging. limit is 1..100, offset is >= 0.
+GET {{baseUrl}}/experiences?limit=5&offset=0
+
+### Unpublished records, which need an admin token to see at all.
+GET {{baseUrl}}/experiences?published=false
+Authorization: Bearer {{accessToken}}
+
+### Create.
+# @name createExperience
+POST {{baseUrl}}/experiences
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Software Engineer",
+  "company": "Example Ltd",
+  "url": "https://example.com",
+  "period": "2024 - Present",
+  "description": "What the role involved.",
+  "technologies": ["Python", "FastAPI", "MongoDB"],
+  "logo": {
+    "light": "https://res.cloudinary.com/example/logo-light.png",
+    "dark": "https://res.cloudinary.com/example/logo-dark.png"
+  },
+  "order": 10,
+  "published": true
+}
+
+###
+
+@experienceId = {{createExperience.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/experiences/{{experienceId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/experiences/{{experienceId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "description": "A more accurate description." }
+
+### Reorder. One request per drag-and-drop commit, rather than one PATCH per
+# row — which is what a list of any length would otherwise cost.
+PATCH {{baseUrl}}/experiences/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{experienceId}}", "order": 20 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/experiences/{{experienceId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================== educations ==============================
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/educations
+
+### With paging. limit is 1..100, offset is >= 0.
+GET {{baseUrl}}/educations?limit=5&offset=0
+
+### Unpublished records, which need an admin token to see at all.
+GET {{baseUrl}}/educations?published=false
+Authorization: Bearer {{accessToken}}
+
+### Create.
+# @name createEducation
+POST {{baseUrl}}/educations
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "course": "BSc (Hons) in Computer Science",
+  "institution": "Example University",
+  "period": "2019 - 2023",
+  "description": "What the course covered.",
+  "url": "https://example.edu",
+  "logo": {
+    "light": "https://res.cloudinary.com/example/logo-light.png",
+    "dark": "https://res.cloudinary.com/example/logo-dark.png"
+  },
+  "order": 10
+}
+
+###
+
+@educationId = {{createEducation.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/educations/{{educationId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/educations/{{educationId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "period": "2019 - 2024" }
+
+### Reorder. One request per drag-and-drop commit, rather than one PATCH per
+# row — which is what a list of any length would otherwise cost.
+PATCH {{baseUrl}}/educations/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{educationId}}", "order": 20 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/educations/{{educationId}}
+Authorization: Bearer {{accessToken}}
+
+# ================================ tools ================================
+# `name` is unique here — a duplicate is a 409, see the failure cases below.
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/tools
+
+### With paging. limit is 1..100, offset is >= 0.
+GET {{baseUrl}}/tools?limit=5&offset=0
+
+### Unpublished records, which need an admin token to see at all.
+GET {{baseUrl}}/tools?published=false
+Authorization: Bearer {{accessToken}}
+
+### Create.
+# @name createTool
+POST {{baseUrl}}/tools
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "FastAPI",
+  "logo": {
+    "light": "https://res.cloudinary.com/example/logo-light.png",
+    "dark": "https://res.cloudinary.com/example/logo-dark.png"
+  },
+  "order": 5
+}
+
+###
+
+@toolId = {{createTool.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/tools/{{toolId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/tools/{{toolId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "order": 15 }
+
+### Reorder. One request per drag-and-drop commit, rather than one PATCH per
+# row — which is what a list of any length would otherwise cost.
+PATCH {{baseUrl}}/tools/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{toolId}}", "order": 20 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/tools/{{toolId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= communities =============================
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/communities
+
+### With paging. limit is 1..100, offset is >= 0.
+GET {{baseUrl}}/communities?limit=5&offset=0
+
+### Unpublished records, which need an admin token to see at all.
+GET {{baseUrl}}/communities?published=false
+Authorization: Bearer {{accessToken}}
+
+### Create.
+# @name createCommunity
+POST {{baseUrl}}/communities
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "Example Developer Group",
+  "role": "Organizer",
+  "period": "2023 - Present",
+  "description": "What the involvement is.",
+  "communityUrl": "https://example.community",
+  "logo": {
+    "light": "https://res.cloudinary.com/example/logo-light.png",
+    "dark": "https://res.cloudinary.com/example/logo-dark.png"
+  },
+  "current": true,
+  "order": 10
+}
+
+###
+
+@communityId = {{createCommunity.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/communities/{{communityId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/communities/{{communityId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "current": false, "period": "2023 - 2026" }
+
+### Reorder. One request per drag-and-drop commit, rather than one PATCH per
+# row — which is what a list of any length would otherwise cost.
+PATCH {{baseUrl}}/communities/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{communityId}}", "order": 20 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/communities/{{communityId}}
+Authorization: Bearer {{accessToken}}
+
+# ================================ videos ================================
+# `date` is a free-text string in v1 and stays one. Nothing sorts on it,
+# so it was not worth a migration.
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/videos
+
+### With paging. limit is 1..100, offset is >= 0.
+GET {{baseUrl}}/videos?limit=5&offset=0
+
+### Unpublished records, which need an admin token to see at all.
+GET {{baseUrl}}/videos?published=false
+Authorization: Bearer {{accessToken}}
+
+### Create.
+# @name createVideo
+POST {{baseUrl}}/videos
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "A talk recording",
+  "date": "2026-01-15",
+  "link": "https://youtube.com/watch?v=example",
+  "thumbnail": "https://img.youtube.com/vi/example/maxresdefault.jpg",
+  "order": 10
+}
+
+###
+
+@videoId = {{createVideo.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/videos/{{videoId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/videos/{{videoId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "title": "A talk recording (remastered)" }
+
+### Reorder. One request per drag-and-drop commit, rather than one PATCH per
+# row — which is what a list of any length would otherwise cost.
+PATCH {{baseUrl}}/videos/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{videoId}}", "order": 20 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/videos/{{videoId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= failure cases =============================
+
+### Missing required fields -> 422, listing every field that failed.
+POST {{baseUrl}}/tools
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "name": "No logo" }
+
+### A duplicate tool name -> 409 conflict.
+POST {{baseUrl}}/tools
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "name": "FastAPI",
+  "logo": { "light": "https://example.com/l.svg", "dark": "https://example.com/d.svg" }
+}
+
+### limit above the maximum -> 422.
+GET {{baseUrl}}/tools?limit=1000
+
+### Unknown id -> 404.
+GET {{baseUrl}}/tools/000000000000000000000000
+
+### Writing without a token -> 401 missing_token.
+POST {{baseUrl}}/tools
+Content-Type: application/json
+
+{ "name": "Should not work" }
