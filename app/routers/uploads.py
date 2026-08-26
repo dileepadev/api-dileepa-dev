@@ -3,8 +3,9 @@
 Two callers: the admin app with a JWT, and the blog repo's workflow with the
 API key. Both land here; nothing else holds Cloudinary credentials.
 
-The path is `/uploads`. v1 served this at `/upload`, which is not carried over:
-alias so the admin keeps working until Phase 5 retargets it.
+The path is `/uploads`. v1 served this at `/upload`, and that path is not
+carried over — v2.0.0 ships as a single cutover, so there is no alias and
+`/upload` returns 404. The admin was retargeted with the rest of it.
 """
 
 from __future__ import annotations
