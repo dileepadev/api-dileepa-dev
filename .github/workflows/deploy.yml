@@ -30,7 +30,13 @@ jobs:
     name: Deploy to FastAPI Cloud
     runs-on: ubuntu-latest
     if: inputs.confirm == 'deploy'
-    environment: production
+    # `production` is the only deployment environment this repository uses, and
+    # the name is deliberate: GitHub groups the Deployments page by it, so a
+    # second name would split one service's history across two headings.
+    # `url` makes the entry link to the live API rather than being a bare label.
+    environment:
+      name: production
+      url: https://api.dileepa.dev
     steps:
       # Full history: the deploy packages the working tree, and a shallow clone
       # has bitten version detection before. Matches FastAPI Cloud's own
