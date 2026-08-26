@@ -198,7 +198,10 @@ Scripts are written and default to dry-run. Running them against the live cluste
       page nor `/api-json` is registered in production
 - [x] Publish the OpenAPI spec so both frontends can generate typed clients — CI uploads
       `openapi.json` on every build
-- [ ] Theme Scalar against the brand tokens
+- [x] Theme Scalar against the brand tokens — `app/core/scalar_theme.py` maps the canonical
+      sheet onto Scalar's `--scalar-*` names. Emerald is declared per theme (Bright on Carbon,
+      Deep on Paper), Manrope and JetBrains Mono replace Scalar's Inter pair, and the docs CSP
+      names the two Google Fonts origins rather than being relaxed
 - [x] Fix the `README.md` endpoint table — including engagement and comments
 - [x] `CHANGELOG.md`; version → `2.0.0` in `pyproject.toml`, which `/version` reads
 - [ ] `VERSIONING.md` review

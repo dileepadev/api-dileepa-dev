@@ -118,6 +118,21 @@ verified against FastAPI in production and a rollback window has passed.
 - `GET /` returns `{ name, version, docs, website }` rather than the string
   `Hello World!`. `docs` is null in production rather than a dead link.
 
+#### Fixed - v2.0.0
+
+- **An oversized upload is rejected without being read into memory first.** `POST /uploads`
+  checked the size limit after `await file.read()`, which materialises the whole body — so a
+  caller sending a multi-gigabyte file exhausted the process rather than receiving a `400`. The
+  read is now bounded to one byte past the limit, and the deployment target runs in 512 MB, which
+  is what made this worth fixing rather than noting. `tests/test_services.py` fails if an
+  unbounded read comes back.
+- **The API reference is themed against the brand tokens.** `app/core/scalar_theme.py` maps the
+  canonical sheet onto Scalar's `--scalar-*` names: Emerald Bright on Carbon and Emerald Deep on
+  Paper, declared per theme because the guide names each on the wrong ground as a hard failure;
+  Manrope and JetBrains Mono in place of Scalar's Inter pair. The docs
+  Content-Security-Policy names the two Google Fonts origins rather than being relaxed to admit
+  them.
+
 #### Removed - v2.0.0
 
 - Azure Blob Storage. Cloudinary is the only image backend.
