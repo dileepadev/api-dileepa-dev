@@ -199,6 +199,79 @@ class TestImageValidation:
         with pytest.raises(BadRequestError):
             await images.upload_image(upload)
 
+    async def test_an_oversized_image_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi import UploadFile
+
+        from app.core.errors import BadRequestError
+        from app.services import images
+
+        monkeypatch.setattr(images, "_configure", lambda: None)
+        oversized = b"x" * (images.MAX_BYTES + 1024)
+        upload = UploadFile(
+            filename="huge.png",
+            file=io.BytesIO(oversized),
+            size=len(oversized),
+            headers=DatastructureHeaders({"content-type": "image/png"}),
+        )
+        with pytest.raises(BadRequestError) as caught:
+            await images.upload_image(upload)
+        assert caught.value.code == "image_too_large"
+
+    async def test_an_oversized_image_is_not_read_into_memory(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The read is bounded, so the body never lands in RAM in full.
+
+        This is the guard, not the 400 above: an unbounded read would still
+        reject the file, but only after materialising all of it — which on a
+        512 MB deployment is the process rather than the request.
+        """
+        from fastapi import UploadFile
+
+        from app.core.errors import BadRequestError
+        from app.services import images
+
+        monkeypatch.setattr(images, "_configure", lambda: None)
+
+        requested: list[int] = []
+
+        class RecordingBytesIO(io.BytesIO):
+            # Signature matches BytesIO.read, which accepts None as "read all".
+            def read(self, size: int | None = -1, /) -> bytes:
+                requested.append(-1 if size is None else size)
+                return super().read(size)
+
+        oversized = b"x" * (images.MAX_BYTES * 4)
+        upload = UploadFile(
+            filename="huge.png",
+            file=RecordingBytesIO(oversized),
+            size=len(oversized),
+            headers=DatastructureHeaders({"content-type": "image/png"}),
+        )
+        with pytest.raises(BadRequestError):
+            await images.upload_image(upload)
+
+        assert requested, "the service never read the upload"
+        assert -1 not in requested, "an unbounded read would pull the whole body into memory"
+        assert max(requested) <= images.MAX_BYTES + 1
+
+    async def test_an_empty_file_is_rejected(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        from fastapi import UploadFile
+
+        from app.core.errors import BadRequestError
+        from app.services import images
+
+        monkeypatch.setattr(images, "_configure", lambda: None)
+        upload = UploadFile(
+            filename="empty.png",
+            file=io.BytesIO(b""),
+            size=0,
+            headers=DatastructureHeaders({"content-type": "image/png"}),
+        )
+        with pytest.raises(BadRequestError) as caught:
+            await images.upload_image(upload)
+        assert caught.value.code == "empty_file"
+
     async def test_missing_configuration_is_a_503(self, monkeypatch: pytest.MonkeyPatch) -> None:
         from app.core.config import get_settings
         from app.services import images

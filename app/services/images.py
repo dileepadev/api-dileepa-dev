@@ -56,11 +56,21 @@ async def upload_image(
             code="unsupported_image_type",
         )
 
-    content = await file.read()
+    # Bounded read: one byte past the limit is enough to know the file is over
+    # it, and stops an oversized upload being materialised in full first.
+    # `await file.read()` with no argument reads the whole body into memory
+    # before the check below could reject it, so a caller sending a multi-
+    # gigabyte body could exhaust the process rather than receive a 400 — and
+    # the deployment target runs in 512 MB.
+    content = await file.read(MAX_BYTES + 1)
     if len(content) > MAX_BYTES:
+        # `file.size` is the real length, set while the multipart body was
+        # parsed. The bounded read above cannot know it, so fall back to naming
+        # the limit rather than reporting the truncated length as the size.
+        actual = getattr(file, "size", None)
+        measured = f"That image is {actual // 1024} KB" if actual else "That image is too large"
         raise BadRequestError(
-            f"That image is {len(content) // 1024} KB. The limit is "
-            f"{MAX_BYTES // (1024 * 1024)} MB.",
+            f"{measured}. The limit is {MAX_BYTES // (1024 * 1024)} MB.",
             code="image_too_large",
         )
     if not content:
