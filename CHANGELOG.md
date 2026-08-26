@@ -11,12 +11,17 @@ Changes are organized into the following categories:
 
 ## [Unreleased]
 
-### 2.0.0 — in progress on `feat/v2.0.0`
+### 2.0.0 — ready for release
 
 The backend moves from NestJS 11 on Vercel serverless to FastAPI on Python 3.13,
 hosted on FastAPI Cloud, and gains two new resources. The NestJS application has
 been removed from the repository: the Vercel deployment was paused before the
 cutover, which left no fallback to preserve and no reason to keep the tree.
+
+The cutover is complete. `https://api.dileepa.dev` is served by FastAPI Cloud
+against the `production` database, and the health check is
+[`/health`](https://api.dileepa.dev/health). What remains is tagging the release
+and promoting the consumers.
 
 #### Added - v2.0.0
 
@@ -63,6 +68,17 @@ cutover, which left no fallback to preserve and no reason to keep the tree.
   original to `events_v1_backup`. Idempotent: a row already in the v2 shape is
   recognised and skipped, so a failed run is simply re-run. Restoring is
   `db.events_v1_backup.aggregate([{ $out: "events" }])`.
+
+- **Deployed on FastAPI Cloud**, replacing Vercel serverless. `pyproject.toml`
+  declares the entrypoint under `[tool.fastapi]`;
+  [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys with a
+  token on `workflow_dispatch` with a typed confirmation, so a deploy is a
+  decision rather than a side effect of a merge. The GitHub deployment
+  environment is named `production`, and that is the only environment name used.
+- **`.github/agents/pr-preparer.agent.md`** — a GitHub Copilot custom agent that
+  prepares and opens pull requests against whatever conventions a repository
+  actually documents, refusing to open one that carries secrets, debris or
+  failing checks. It never merges and never bypasses branch protection.
 
 #### Changed - v2.0.0
 
@@ -113,8 +129,8 @@ cutover, which left no fallback to preserve and no reason to keep the tree.
   Swagger UI and ReDoc, which are both switched off. In production neither the
   page nor the OpenAPI JSON at `/api-json` is registered, so the reference
   cannot be reached and the spec it reads is not served — the v1 posture, kept.
-  `/docs` is served with its own Content-Security-Policy allowing exactly the
-  Scalar CDN; the rest of the API keeps `default-src 'none'`.
+  `/docs` is served with its own Content-Security-Policy naming exactly the origins it needs —
+  the Scalar CDN and the two Google Fonts hosts; the rest of the API keeps `default-src 'none'`.
 - `GET /` returns `{ name, version, docs, website }` rather than the string
   `Hello World!`. `docs` is null in production rather than a dead link.
 
@@ -130,17 +146,50 @@ cutover, which left no fallback to preserve and no reason to keep the tree.
   per-pull-request environments, and its GitHub integration deploys the default branch only —
   both verified against its documentation rather than assumed. The roadmap had carried "stand
   FastAPI up alongside NestJS on a preview deployment" as a step the platform cannot perform.
-  What replaces it is the staged DNS cutover that was always the real plan: the app's own
-  `*.fastapicloud.dev` URL serves the new build against the production database while
-  `api.dileepa.dev` still resolves to Vercel. `README.md` now carries the ordered cutover, and
-  `deploy.yml` records that a `workflow_dispatch` workflow cannot be run until it reaches the
-  default branch.
+  What replaced it was the app's own `*.fastapicloud.dev` URL, which serves the new build
+  against the production database and is where the deployment was verified before the domain
+  moved. The staged-DNS half of that plan did not survive contact: Vercel was paused before the
+  cutover, so there was never an old version still carrying traffic to compare against or fall
+  back to. `README.md` carries the ordered cutover and its outcome.
 - **The API reference is themed against the brand tokens.** `app/core/scalar_theme.py` maps the
   canonical sheet onto Scalar's `--scalar-*` names: Emerald Bright on Carbon and Emerald Deep on
   Paper, declared per theme because the guide names each on the wrong ground as a hard failure;
   Manrope and JetBrains Mono in place of Scalar's Inter pair. The docs
   Content-Security-Policy names the two Google Fonts origins rather than being relaxed to admit
   them.
+
+#### Security - v2.0.0
+
+- **An oversized upload can no longer exhaust the process.** See *Fixed* — the
+  read is bounded rather than checked after the fact, which matters on a 512 MB
+  target.
+- **Both workflows declare least-privilege `permissions`.** `ci.yml` and
+  `deploy.yml` each request `contents: read` rather than inheriting whatever the
+  repository default happens to be. A deploy authenticates to FastAPI Cloud with
+  its own token and needs no write access to the repository at all.
+- **Eight security headers on every response** — Content-Security-Policy
+  (`default-src 'none'`), HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, and both Cross-Origin-Opener and
+  Cross-Origin-Resource policies. Verified against the live domain, not asserted.
+- **CORS is an allowlist, never a wildcard.** Startup refuses to boot on a
+  wildcard `CORS_ORIGINS` in production. An unlisted origin receives no
+  `Access-Control-Allow-Origin` header at all.
+- **Rate limiting is enforced through a router-aware middleware.** The stock
+  SlowAPI middleware fails open on FastAPI 0.141, because `include_router` leaves
+  routers nested and the middleware finds no endpoint to read a limit from —
+  which silently disables the limit rather than reporting an error.
+- **Startup refuses a misconfigured production.** A placeholder `JWT_SECRET`, a
+  localhost `MONGODB_URI`, a wildcard `CORS_ORIGINS` or an empty
+  `BLOG_SYNC_API_KEY` each abort the boot rather than serve traffic.
+- **Errors never carry internals.** The envelope is `{ error: { code, message,
+  details } }` on every path; no stack trace, driver message or query reaches a
+  client. Sign-in failures do not distinguish an unknown address from a wrong
+  password.
+- **The API reference and its spec are unregistered in production**, so neither
+  `/docs` nor `/api-json` exists to be found.
+- **No secret is committed.** No `.env` file is tracked or has ever been in this
+  repository's history; the `.example` templates carry placeholders only, and
+  both workflows read `${{ secrets.* }}`.
 
 #### Removed - v2.0.0
 

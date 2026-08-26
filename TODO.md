@@ -16,12 +16,11 @@ FastAPI Cloud, and gains two new resources. Architecture and rules are in [AGENT
 
 This is an architectural migration, not a framework swap.
 
-> [!CAUTION]
-> **This repository blocks both frontends, and the API is currently down.** The plan was to keep
-> NestJS serving until FastAPI was verified; that is no longer possible. The Vercel deployment is
-> paused and every path on `api.dileepa.dev` returns `503 DEPLOYMENT_PAUSED`, so there is nothing
-> to fall back to and no rollback target. `src/` and the Node toolchain have been deleted. The
-> remaining work is a recovery, not a staged migration.
+> [!NOTE]
+> **The cutover is done.** `api.dileepa.dev` is served by FastAPI Cloud, `src/` and the Node
+> toolchain are gone, and the Vercel deployment no longer carries traffic. There was no rollback
+> target when the domain moved — Vercel was already paused — so what remains is confirming the
+> two consumers and closing the release out, not a staged migration.
 
 ### Baseline ✅
 
@@ -189,6 +188,7 @@ alias; the old paths return `404`.
 - [x] CI workflow — lint, format, types, tests, and the OpenAPI spec as an artifact
 - [x] Deploy workflow, manual (`workflow_dispatch`) until the cutover is observed
 - [x] Declare the entrypoint in `pyproject.toml` (`[tool.fastapi] entrypoint`)
+
 > [!NOTE]
 > **The deploy workflow is dispatchable now that it is on `main`.** GitHub only shows the Run
 > workflow button for a `workflow_dispatch` workflow that exists on the default branch, which this
@@ -196,21 +196,22 @@ alias; the old paths return `404`.
 > works and bypasses Actions entirely, needing only `fastapi cloud login`.
 
 - [ ] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
-- [x] Deploy with `fastapi deploy` — live at
-      `https://api-dileepa-dev-45eea810.fastapicloud.dev`. `/health` reports the database up,
-      `/version` reports 2.0.0 in production. Deployed from a local CLI login, not CI; the two
-      repository secrets are still unset, so the workflow itself has not been exercised
+- [x] Deploy with `fastapi deploy` — live, and now served at `https://api.dileepa.dev`.
+      `/health` reports the database up, `/version` reports 2.0.0 in production. Deployed from a
+      local CLI login, not CI; the two repository secrets are still unset, so the workflow itself
+      has not been exercised
 - [x] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive — 20 of
       the 21 values set, `JWT_SECRET`, `MONGODB_URI`, both Cloudinary keys, `RESEND_API_KEY` and
       `BLOG_SYNC_API_KEY` marked secret. `PORT` is deliberately unset: nothing reads it and the
       platform binds its own. Secrets are write-only — keep the authoritative copy in a password
       manager
 - [x] Environment changes need a redeploy to take effect
-- [ ] **Attach `api.dileepa.dev` only after the first successful deployment** — a domain cannot be
-      reserved ahead of a running app
-- [ ] Add the domain with **Zero Downtime Migration** enabled, so the certificate is issued
-      before traffic switches. Subdomain is a `CNAME` at `api` →
-      `<domain-id>.endpoints.fastapicloud.dev.`
+- [x] **Attach `api.dileepa.dev` only after the first successful deployment** — attached and
+      live. `https://api.dileepa.dev/health` returns `{"status":"ok","checks":{"database":"up"}}`
+      and is the production health endpoint
+- [x] Add the domain with **Zero Downtime Migration** enabled — the certificate was issued by
+      Google Trust Services and the domain serves from FastAPI Cloud. Subdomain is a `CNAME` at
+      `api` → `<domain-id>.endpoints.fastapicloud.dev.`
 - [x] Confirm no CAA record on `dileepa.dev` blocks `pki.goog` — there is no CAA record at all,
       so any CA may issue
 - [ ] Decide the plan before production traffic moves — Hobby is 0.1 vCPU / 512 MB shared, 1-day log
@@ -242,7 +243,8 @@ alias; the old paths return `404`.
 - [x] `VERSIONING.md` review — the release steps still said to bump `package.json`, which this
       repository no longer ships. Corrected to `pyproject.toml`, which is what `GET /version`
       actually reads
-- [ ] Merge `feat/v2.0.0`; tag `v2.0.0`
+- [ ] Tag `v2.0.0`. `feat/v2.0.0`, `dev` and `main` already hold identical trees, so the
+      promotion is a tag rather than a merge
 - [ ] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13) — **last, and not
       before.** Not when this branch merges, not when the first deploy succeeds, and not when the
       domain resolves. It closes when `api.dileepa.dev` has served production traffic from FastAPI
@@ -257,14 +259,17 @@ did not: the Vercel deployment was paused before the cutover, which removed the 
 keeping the NestJS tree pointless. The removal below therefore happened ahead of the documented
 order, and the consumer cutover is still outstanding.
 
-- [ ] Cut `dileepa-dev` and `admin-dileepa-dev` over; observe through a rollback window
+- [ ] Cut `dileepa-dev` and `admin-dileepa-dev` over; observe through a rollback window.
+      `admin.dileepa.dev` currently resolves to Porkbun parking and has never been deployed
 - [x] Delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain — 95 files removed.
       `tests/contract/test_v1_parity.py` keeps the v1 route table hardcoded in Python and never
       read `src/`, so parity coverage is unaffected. Verified after removal: 359 passed, ruff and
       mypy clean
-- [x] Retire the Vercel deployment — paused, and every path on `api.dileepa.dev` returns
-      `503 DEPLOYMENT_PAUSED`. The Vercel project itself still exists; delete it once FastAPI
-      Cloud has served the domain through a rollback window
+- [x] Retire the Vercel deployment — `api.dileepa.dev` now resolves to FastAPI Cloud, so Vercel
+      no longer serves the API. **The Vercel project still exists and its GitHub integration is
+      still connected**: it created `Preview` and `Production` deployment records on the most
+      recent push. Disconnect it, or every push keeps producing deployment records under names
+      other than `production`
 
 ## Later
 
