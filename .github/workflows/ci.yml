@@ -10,6 +10,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Least privilege, declared rather than inherited: without this block the
+# GITHUB_TOKEN carries whatever the repository default is, which can be
+# read-write. Nothing here writes to the repository — the checks read the code
+# and the spec leaves as an artifact.
+permissions:
+  contents: read
+
 jobs:
   check:
     name: Lint, types, tests

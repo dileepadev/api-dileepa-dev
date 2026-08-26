@@ -12,6 +12,11 @@ on:
         required: true
         default: ""
 
+# The deploy authenticates to FastAPI Cloud with its own token; it needs no
+# write access to the repository itself.
+permissions:
+  contents: read
+
 jobs:
   deploy:
     name: Deploy to FastAPI Cloud
