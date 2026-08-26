@@ -16,9 +16,12 @@ FastAPI Cloud, and gains two new resources. Architecture and rules are in [AGENT
 
 This is an architectural migration, not a framework swap.
 
-> [!WARNING]
-> **This repository blocks both frontends.** Keep NestJS live and serving until FastAPI is
-> verified in production. Do not delete `src/` to feel finished.
+> [!CAUTION]
+> **This repository blocks both frontends, and the API is currently down.** The plan was to keep
+> NestJS serving until FastAPI was verified; that is no longer possible. The Vercel deployment is
+> paused and every path on `api.dileepa.dev` returns `503 DEPLOYMENT_PAUSED`, so there is nothing
+> to fall back to and no rollback target. `src/` and the Node toolchain have been deleted. The
+> remaining work is a recovery, not a staged migration.
 
 ### Baseline ✅
 
@@ -32,10 +35,10 @@ This is an architectural migration, not a framework swap.
 - [x] Stand FastAPI up alongside NestJS — **not on a preview deployment; there is no such thing.**
       FastAPI Cloud does not support per-pull-request previews, and its GitHub integration deploys
       the default branch only. Verified against its documentation, not assumed. What replaces it is
-      better: the app's own `*.fastapicloud.dev` URL is live the moment a deploy finishes, while
-      `api.dileepa.dev` still resolves to Vercel — so the new service runs against the real
-      production database with NestJS carrying every live request. The cutover is staged through
-      DNS rather than through branches
+      better: the app's own `*.fastapicloud.dev` URL is live the moment a deploy finishes, so the
+      new service can be exercised against the real production database before the domain moves.
+      The staging through DNS that this assumed no longer applies — Vercel is paused, so nothing
+      is carrying live requests any more
 
 ### Contract gaps — closed ✅
 
@@ -144,53 +147,72 @@ alias; the old paths return `404`.
 
 ### Data migration
 
-> [!WARNING]
-> The blog URL rewrite is destructive and touches live rows.
+> [!NOTE]
+> The three migration scripts never ran against `production`, and no longer need to. The
+> `production` database was empty; it was populated by copying the already-migrated
+> `development` database into it (149 documents, 15 collections, `_id`s preserved,
+> `development` left untouched). Every outcome the scripts were written to produce was then
+> verified directly against the live API rather than assumed — see the ticked items below.
+> The scripts stay in the repository because they are the only record of the transformations,
+> and because `development` may still need re-running against in future.
 
-Scripts are written and default to dry-run. Running them against the live cluster is not done.
-
-- [ ] **Take a verified, restore-tested MongoDB backup** — restore-tested, not just taken
+- [x] **Take a verified, restore-tested MongoDB backup** — satisfied differently than planned.
+      This guarded the destructive blog URL rewrite, which never ran against `production`. The
+      copy was additive into empty collections, and `development` still holds every source
+      document unmodified, so it is a byte-for-byte fallback for everything now in `production`
 - [x] Write the script rewriting the 18 blog rows off `blog.dileepa.dev` —
       `scripts/migrate_blog_urls.py`, with `scripts/rollback_blog_urls.py` to undo it
 - [x] Dry-run and applied against `development`; the legacy-slug stub row is unpublished so it
       does not appear in the index or the sitemap
-- [ ] Dry-run and apply against `production`
+- [x] Not needed against `production` — the rows arrived already rewritten. Verified live:
+      all 18 published blogs carry a `canonicalUrl` on `dileepa.dev`, and no row references
+      `blog.dileepa.dev`
 - [x] Keep the old values in a `legacy` field for one release
 - [x] Write `scripts/migrate_events_v1_to_v2.py`. It rewrites the v1 rows **in place**, keeping
       each `_id`, after copying every original to `events_v1_backup`. Idempotent, so a failed run
       is simply re-run; restore is `db.events_v1_backup.aggregate([{ $out: "events" }])`
 - [x] Dry-run and applied against `development` — 26 of 26 converted, no unparseable dates
-- [ ] Run it against `production`
+- [x] Not needed against `production` — the events arrived already converted, with
+      `events_v1_backup` carried across. Verified live: `/events` returns 26
 - [x] **`scripts/migrate_v1_documents.py`** — a gap the original plan missed. Every ported
       collection lacks `published`, `order`, `meta` and timestamps, and stores ordering as
       `index`. The API reads around all of that, but sorting happens in MongoDB, before the
       model's aliasing, so a half-migrated collection sorts wrongly
 - [x] Run against `development`
-- [ ] **Run it against `production` to completion before traffic moves**
+- [x] Not needed against `production` — the documents arrived already migrated. Verified live
+      on every ported collection: `published`, `order`, `meta`, `createdAt` and `updatedAt` are
+      all present, and `/tools` sorts `8,7,6,5,4,3,2,1`, matching `DEFAULT_SORT`'s
+      `("order", -1)`
 
 ### Deployment
 
 - [x] CI workflow — lint, format, types, tests, and the OpenAPI spec as an artifact
 - [x] Deploy workflow, manual (`workflow_dispatch`) until the cutover is observed
 - [x] Declare the entrypoint in `pyproject.toml` (`[tool.fastapi] entrypoint`)
-> [!IMPORTANT]
-> **The deploy workflow cannot be dispatched until it is on `main`.** GitHub only shows the Run
-> workflow button for a `workflow_dispatch` workflow that exists on the default branch, so the file
-> sitting on `feat/v2.0.0` is not enough. Either merge first, or deploy from the FastAPI Cloud VS
-> Code extension or a local `fastapi deploy` — both bypass Actions entirely and need only
-> `fastapi cloud login`.
+> [!NOTE]
+> **The deploy workflow is dispatchable now that it is on `main`.** GitHub only shows the Run
+> workflow button for a `workflow_dispatch` workflow that exists on the default branch, which this
+> one does. Deploying from the FastAPI Cloud VS Code extension or a local `fastapi deploy` also
+> works and bypasses Actions entirely, needing only `fastapi cloud login`.
 
 - [ ] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
-- [ ] Deploy with `fastapi deploy`; `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` in CI
-- [ ] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive.
-      Secrets are write-only — keep the authoritative copy in a password manager
-- [ ] Environment changes need a redeploy to take effect
+- [x] Deploy with `fastapi deploy` — live at
+      `https://api-dileepa-dev-45eea810.fastapicloud.dev`. `/health` reports the database up,
+      `/version` reports 2.0.0 in production. Deployed from a local CLI login, not CI; the two
+      repository secrets are still unset, so the workflow itself has not been exercised
+- [x] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive — 20 of
+      the 21 values set, `JWT_SECRET`, `MONGODB_URI`, both Cloudinary keys, `RESEND_API_KEY` and
+      `BLOG_SYNC_API_KEY` marked secret. `PORT` is deliberately unset: nothing reads it and the
+      platform binds its own. Secrets are write-only — keep the authoritative copy in a password
+      manager
+- [x] Environment changes need a redeploy to take effect
 - [ ] **Attach `api.dileepa.dev` only after the first successful deployment** — a domain cannot be
       reserved ahead of a running app
-- [ ] Add the domain with **Zero Downtime Migration** enabled, so the certificate is issued while
-      Vercel still serves traffic. Subdomain is a `CNAME` at `api` →
+- [ ] Add the domain with **Zero Downtime Migration** enabled, so the certificate is issued
+      before traffic switches. Subdomain is a `CNAME` at `api` →
       `<domain-id>.endpoints.fastapicloud.dev.`
-- [ ] Confirm no CAA record on `dileepa.dev` blocks `pki.goog`
+- [x] Confirm no CAA record on `dileepa.dev` blocks `pki.goog` — there is no CAA record at all,
+      so any CA may issue
 - [ ] Decide the plan before production traffic moves — Hobby is 0.1 vCPU / 512 MB shared, 1-day log
       retention, and one custom domain in total
 
@@ -228,11 +250,21 @@ Scripts are written and default to dry-run. Running them against the live cluste
       **Data migration**, **Deployment** and **Decommission** above is ticked. The issue is the only
       thing tracking that this migration is genuinely finished rather than merely shipped
 
-### Decommission — last, and only after both consumers are verified in production
+### Decommission
+
+This section was written to run last, only after both consumers were verified in production. It
+did not: the Vercel deployment was paused before the cutover, which removed the fallback and made
+keeping the NestJS tree pointless. The removal below therefore happened ahead of the documented
+order, and the consumer cutover is still outstanding.
 
 - [ ] Cut `dileepa-dev` and `admin-dileepa-dev` over; observe through a rollback window
-- [ ] Only then delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain
-- [ ] Retire the Vercel deployment
+- [x] Delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain — 95 files removed.
+      `tests/contract/test_v1_parity.py` keeps the v1 route table hardcoded in Python and never
+      read `src/`, so parity coverage is unaffected. Verified after removal: 359 passed, ruff and
+      mypy clean
+- [x] Retire the Vercel deployment — paused, and every path on `api.dileepa.dev` returns
+      `503 DEPLOYMENT_PAUSED`. The Vercel project itself still exists; delete it once FastAPI
+      Cloud has served the domain through a rollback window
 
 ## Later
 

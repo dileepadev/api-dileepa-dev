@@ -1,7 +1,7 @@
 """MongoDB connection lifecycle.
 
 The async PyMongo driver connects to the **same cluster and the same
-collections** the NestJS app uses. Nothing here re-seeds or renames anything;
+collections** v1 used. Nothing here re-seeds or renames anything;
 document shape changes are the migration scripts' job, not the app's.
 """
 

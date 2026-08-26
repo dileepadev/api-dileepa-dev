@@ -2,11 +2,12 @@
 
 This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.dev)), built with [FastAPI](https://fastapi.tiangolo.com/). It provides the data behind the main site, the admin dashboard, and the blog sync pipeline.
 
-> [!NOTE]
-> v2.0.0 migrates this API from NestJS to FastAPI. Both stacks are in the repository during the
-> migration: `app/` is the FastAPI application and `src/` is the NestJS one still serving
-> production. `src/` is deleted only after both consumers are verified against FastAPI and a
-> rollback window has passed. See [TODO.md](TODO.md).
+> [!IMPORTANT]
+> v2.0.0 replaced the NestJS API with this one. NestJS is **gone** — the `src/` tree, the Node
+> toolchain and the Vercel deployment have all been removed, and `api.dileepa.dev` currently
+> returns `503 DEPLOYMENT_PAUSED` from the retired Vercel app. There is no fallback to roll back
+> to, so this repository is the only thing that can serve the API. See
+> [Deployment](#deployment) for the cutover, and [TODO.md](TODO.md) for what remains.
 
 ## Table of Contents
 
@@ -357,19 +358,23 @@ not supported, and its GitHub integration only ever deploys the repository's
 default branch — pushes to any other branch are ignored. There is no staging
 copy of this service.
 
-That is not the constraint it first looks like, because the cutover is staged
-through DNS rather than through branches:
+That used to be softened by DNS: the plan was to verify the new service on its
+own URL while Vercel kept serving `api.dileepa.dev`. **That safety net is no
+longer there.** The Vercel deployment is paused and every path on
+`api.dileepa.dev` returns `503`, so there is no old version still carrying
+traffic and nothing to fall back to.
+
+What remains is still a real verification step, just without a live comparison:
 
 1. Every app gets a default `https://<app>.fastapicloud.dev` URL, with TLS,
    live the moment a deploy finishes.
-2. `api.dileepa.dev` keeps pointing at the Vercel NestJS deployment throughout.
-3. So the new service can be exercised against the **real production database**
-   on its FastAPI Cloud URL while the old one carries all live traffic.
-4. The domain moves only once that is verified.
+2. The new service is exercised there, against the **real production database**,
+   before the domain is pointed at it.
+3. The domain moves only once that is verified.
 
-The verification window is the `.fastapicloud.dev` URL, and it is a better test
-than a preview environment would be: same data, same runtime, same
-configuration.
+Because the API is already down, the deploy is a recovery rather than a
+migration: it restores a service that is currently returning `503`, and it
+cannot make the live situation worse than it already is.
 
 ### Deploying
 
@@ -379,12 +384,12 @@ deploy token and runs on `workflow_dispatch` with a typed confirmation. A deploy
 stays a decision rather than a side effect of a merge, which is what the cutover
 needs.
 
-> [!IMPORTANT]
+> [!NOTE]
 > **A `workflow_dispatch` workflow only appears in the Actions UI once it is on
-> the default branch.** Until this branch merges to `main`, there is no Run
-> workflow button to press — the file existing on a feature branch is not
-> enough. Deploy from the FastAPI Cloud VS Code extension or a local
-> `fastapi deploy` before then, or merge first.
+> the default branch.** This workflow is on `main`, so the Run workflow button
+> is available. A copy living only on a feature branch is not dispatchable,
+> however green that branch is — deploy from the FastAPI Cloud VS Code
+> extension or a local `fastapi deploy` in that case.
 
 `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` come from
 `fastapi cloud setup-ci`, which writes both repository secrets. Pass
@@ -395,7 +400,17 @@ Application configuration is separate from those two, and is set with
 are write-only once set, so keep the authoritative copy in a password manager.
 **A configuration change needs a redeploy to take effect.**
 
-### Cutover order
+### Cutover status
+
+Steps 1 to 6 are done. The app is deployed and serving at
+`https://api-dileepa-dev-45eea810.fastapicloud.dev`, against the `production`
+database, which was populated by copying the already-migrated `development`
+database into it. Verified live: `/health` reports the database up, `/version`
+reports 2.0.0 in production, all eight security headers are present, `/docs`
+and `/api-json` return 404, CORS refuses an unlisted origin, and the rate
+limiter returns 429 with `Retry-After` past 60 requests a minute.
+
+What is left is step 7, attaching `api.dileepa.dev`, and step 8.
 
 Each step depends on the one before it.
 
@@ -406,12 +421,13 @@ Each step depends on the one before it.
 | 3 | `migrate_events_v1_to_v2.py`, then `migrate_blog_urls.py` | Originals are copied to `events_v1_backup` first; both are idempotent |
 | 4 | `scripts/verify_password_hash.py` against production | The test suite pins a hash generated here; this checks the owner's real one |
 | 5 | `fastapi cloud env set` for every value in `.env.production.example` | A missing one either fails startup or degrades a feature |
-| 6 | Deploy, and verify on the `.fastapicloud.dev` URL | NestJS is still serving; nothing is at risk yet |
-| 7 | Attach `api.dileepa.dev` with **Zero Downtime Migration** | The certificate is issued while Vercel still serves traffic |
-| 8 | Watch through a rollback window, then retire Vercel | Rollback is "leave DNS alone" right up until step 7 |
+| 6 | Deploy, and verify on the `.fastapicloud.dev` URL | The only chance to check the build against real data before it is the live API |
+| 7 | Attach `api.dileepa.dev` with **Zero Downtime Migration** | Moves the domain off the paused Vercel app; the certificate is issued before traffic switches |
+| 8 | Confirm both consumers, then delete the Vercel project | The site and the admin are the real acceptance test |
 
 A domain cannot be reserved ahead of a running app, which is why step 7 cannot
-move earlier. The subdomain is a `CNAME` at `api` pointing to the value FastAPI
+move earlier. Note that there is no rollback target: steps 1 to 4 are the
+reversible part, and once the domain moves the only way out is forward. The subdomain is a `CNAME` at `api` pointing to the value FastAPI
 Cloud shows for the app.
 
 Startup refuses a misconfigured production: a placeholder `JWT_SECRET`, a

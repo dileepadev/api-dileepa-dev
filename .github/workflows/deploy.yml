@@ -6,16 +6,14 @@ name: Deploy
 # production traffic through a rollback window.
 #
 # NOTE: GitHub only offers the Run workflow button for a `workflow_dispatch`
-# workflow that exists on the **default branch**. While this file lives only on
-# a feature branch there is nothing to dispatch, however green the branch is.
-# Until it reaches `main`, deploy from the FastAPI Cloud VS Code extension or a
-# local `fastapi deploy` instead.
+# workflow that exists on the **default branch**. This file is on `main`, so the
+# button is there; a copy on a feature branch alone would not be dispatchable.
 #
 # FastAPI Cloud has no preview or per-branch environments, so this deploys the
-# one production app. What makes that safe before the cutover is DNS:
-# `api.dileepa.dev` still resolves to the NestJS deployment on Vercel, and the
-# new service is verified on its own `*.fastapicloud.dev` URL first. README
-# "Deployment" has the full order.
+# one production app. There is no longer an older deployment behind DNS to fall
+# back to -- the Vercel app is paused and `api.dileepa.dev` returns 503 -- so
+# verify on the app's own `*.fastapicloud.dev` URL before the domain is
+# attached. README "Deployment" has the full order.
 on:
   workflow_dispatch:
     inputs:

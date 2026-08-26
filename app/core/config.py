@@ -136,12 +136,13 @@ class Settings(BaseSettings):
     # `fastapi cloud env set`, and JSON quoting there is a foot-gun.
     cors_origins_raw: str = Field(default="", alias="CORS_ORIGINS")
 
-    # MongoDB — the same cluster and collections the NestJS app uses.
+    # MongoDB — the same cluster and collections v1 used. Nothing re-seeds.
     mongodb_uri: str = Field(default="mongodb://localhost:27017/dileepa", alias="MONGODB_URI")
     mongodb_db: str | None = Field(default=None, alias="MONGODB_DB")
 
-    # Auth. Algorithm, secret and access-token lifetime match the NestJS
-    # implementation so tokens minted before the cutover stay valid.
+    # Auth. Algorithm, secret and access-token lifetime match what v1 used, so
+    # a token it minted — which lives in a browser, not in a deployment — is
+    # still valid here.
     jwt_secret: str = Field(default="defaultSecret", alias="JWT_SECRET")
     jwt_algorithm: str = Field(default="HS256", alias="JWT_ALGORITHM")
     access_token_expire_minutes: int = Field(default=60, alias="ACCESS_TOKEN_EXPIRE_MINUTES")
@@ -184,7 +185,8 @@ class Settings(BaseSettings):
     def _fix_write_concern_separator(cls, value: str) -> str:
         # The stored connection string has `majority/?authMechanism`, which the
         # driver reads as a stray path segment and then fails with "No write
-        # concern mode". Carried over from src/app.module.ts.
+        # concern mode". The v1 application applied the same fix; the malformed
+        # value is in the stored configuration, not in either codebase.
         return value.replace("majority/?authMechanism", "majority&authMechanism")
 
     @model_validator(mode="after")
@@ -283,10 +285,10 @@ class Settings(BaseSettings):
     def production_warnings(self) -> list[str]:
         """Worth saying out loud, but not worth refusing to start over.
 
-        `JWT_SECRET` length is deliberately a warning: it has to keep matching
-        the NestJS deployment through the cutover, and failing the boot over a
-        short-but-correct secret would take production down to fix a weakness
-        that predates this service.
+        `JWT_SECRET` length is deliberately a warning: it still has to verify
+        the tokens v1 minted, which live in browsers rather than in any
+        deployment, and failing the boot over a short-but-correct secret would
+        take production down to fix a weakness that predates this service.
         """
         if not self.is_production:
             return []
@@ -296,7 +298,8 @@ class Settings(BaseSettings):
         if len(self.jwt_secret) < 32:
             warnings.append(
                 f"JWT_SECRET is {len(self.jwt_secret)} characters; HS256 wants at least 32. "
-                "Rotate it once the NestJS deployment is retired."
+                "Rotate it once no v1-issued token can still be in a browser — "
+                "REFRESH_TOKEN_EXPIRE_DAYS after the cutover."
             )
         if not self.resend_api_key.strip():
             warnings.append("RESEND_API_KEY is empty — the contact form will return 503.")
