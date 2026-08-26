@@ -14,6 +14,7 @@ fake cannot evaluate raises instead of quietly returning the wrong rows.
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -69,6 +70,10 @@ class DocumentRepository(Protocol):
     async def delete_one(self, filters: Filters) -> Document | None: ...
 
     async def upsert_by(self, field: str, value: Any, data: Document) -> Document: ...
+
+    async def increment(
+        self, filters: Filters, amounts: Mapping[str, int], *, upsert: bool = False
+    ) -> Document | None: ...
 
     async def set_order(self, order_by_id: dict[str, int]) -> int: ...
 
@@ -165,6 +170,33 @@ class MongoRepository:
         if document is None:  # pragma: no cover - upsert always returns a document
             raise ConflictError(f"Could not upsert {self._label} with {field} '{value}'.")
         return document
+
+    async def increment(
+        self, filters: Filters, amounts: Mapping[str, int], *, upsert: bool = False
+    ) -> Document | None:
+        """Add to numeric fields atomically, and return the document after.
+
+        `update_one` cannot express this. It wraps everything it is given in
+        `$set`, so incrementing through it would mean read-then-write: two round
+        trips with a gap in between, and two readers in that gap both write the
+        same number. A view counter is exactly the workload where that loses
+        counts, so `$inc` is issued directly and the database does the addition.
+
+        Missing fields are treated as zero by `$inc` itself, so a document that
+        predates a counter needs no backfill.
+        """
+        update: dict[str, Any] = {"$inc": dict(amounts), "$set": {"updatedAt": utc_now()}}
+        if upsert:
+            update["$setOnInsert"] = {"createdAt": utc_now()}
+        try:
+            return await self._collection.find_one_and_update(
+                filters,
+                update,
+                upsert=upsert,
+                return_document=ReturnDocument.AFTER,
+            )
+        except DuplicateKeyError as exc:
+            raise self._conflict(exc) from exc
 
     async def set_order(self, order_by_id: dict[str, int]) -> int:
         updated = 0

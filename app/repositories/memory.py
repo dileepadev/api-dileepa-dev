@@ -12,6 +12,7 @@ returning the wrong documents.
 from __future__ import annotations
 
 import copy
+from collections.abc import Mapping
 from typing import Any
 
 from bson import ObjectId
@@ -229,6 +230,24 @@ class InMemoryRepository:
             raise ConflictError(f"Could not upsert {self._label} with {field} '{value}'.")
         return document
 
+    async def increment(
+        self, filters: Filters, amounts: Mapping[str, int], *, upsert: bool = False
+    ) -> Document | None:
+        """In-memory `$inc`, including its treatment of a missing field as zero."""
+        for document in self._documents:
+            if matches(document, filters):
+                for field, amount in amounts.items():
+                    _inc_path(document, field, amount)
+                document["updatedAt"] = utc_now()
+                return copy.deepcopy(document)
+        if not upsert:
+            return None
+        seed = {k: v for k, v in filters.items() if not k.startswith("$")}
+        created: Document = {**seed}
+        for field, amount in amounts.items():
+            _inc_path(created, field, amount)
+        return await self.create(created)
+
     async def set_order(self, order_by_id: dict[str, int]) -> int:
         updated = 0
         for doc_id, order in order_by_id.items():
@@ -256,3 +275,24 @@ class InMemoryRepository:
 
 def _as_object_id(value: str) -> ObjectId | None:
     return ObjectId(value) if ObjectId.is_valid(value) else None
+
+
+def _inc_path(document: Document, path: str, amount: int) -> None:
+    """Apply one `$inc`, including Mongo's handling of dotted paths.
+
+    `reactions.liked` addresses a field *inside* a subdocument. Setting
+    `document["reactions.liked"]` instead creates a key with a dot in its name,
+    which reads back as a missing counter and a mysteriously always-zero UI —
+    so the path is walked, creating the intermediate documents the way `$inc`
+    does. A missing field starts at zero, also as `$inc` does.
+    """
+    head, _, tail = path.partition(".")
+    if not tail:
+        current = document.get(head)
+        document[head] = (current if isinstance(current, int) else 0) + amount
+        return
+    child = document.get(head)
+    if not isinstance(child, dict):
+        child = {}
+        document[head] = child
+    _inc_path(child, tail, amount)
