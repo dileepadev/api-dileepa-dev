@@ -15,9 +15,32 @@ from app.models.common import ApiModel, Logo, OrderedResource, TimestampedResour
 
 
 class AboutImages(ApiModel):
+    """The portrait, in every format it has been uploaded in.
+
+    Three portrait fields rather than one, because a consumer picks the format
+    it wants rather than the one that happens to be stored: `next/image` is
+    happiest with WebP, a JPEG is what a phone camera and most stock exports
+    produce, and the PNG is the lossless original. All three are optional and
+    a record may carry any subset — `portrait_sources()` is the order they are
+    preferred in.
+    """
+
     banner_webp: Url | None = None
     profile_png: Url | None = None
     profile_webp: Url | None = None
+    # New in v2.0.0. WebP and PNG both predate it, and neither changes: a
+    # record with no JPEG behaves exactly as it did before this field existed.
+    profile_jpg: Url | None = None
+
+    def portrait_sources(self) -> list[Url]:
+        """The portrait URLs to try, most preferred first.
+
+        Smallest first, lossless last. The JPEG slots between WebP and PNG,
+        which is why adding it changes nothing for a record that has neither
+        of the other two or has the WebP: the existing answer stays the
+        existing answer.
+        """
+        return [url for url in (self.profile_webp, self.profile_jpg, self.profile_png) if url]
 
 
 class AboutLinks(ApiModel):
@@ -35,6 +58,12 @@ class AboutBase(ApiModel):
     name: str | None = None
     title: str | None = None
     tagline: str | None = None
+    # The sentence under the tagline in the hero. It lived in `description[1]`,
+    # which meant the site had to know that the About section's second
+    # paragraph was also the hero's lead — a coupling nothing declared and
+    # nothing protected. It is its own field so the hero reads one value and
+    # the About copy can be edited without moving the hero out from under it.
+    tagline_description: str | None = None
     # Rendered beside the portrait as "<title> · <location>". Free text rather
     # than a structured place: it is a label on a photograph, not an address.
     location: str | None = None
@@ -53,6 +82,7 @@ class AboutUpdate(ApiModel):
     name: str | None = None
     title: str | None = None
     tagline: str | None = None
+    tagline_description: str | None = None
     location: str | None = None
     description: list[str] | None = None
     status: str | None = None
@@ -65,6 +95,10 @@ class About(TimestampedResource):
     name: str
     title: str
     tagline: str
+    # Optional on the way out for the same reason `location` is: every record
+    # written before the field existed has no value for it, and a response
+    # model stricter than its request model turns that into a 500 on read.
+    tagline_description: str | None = None
     # Optional on the way out because it is optional on the way in. A response
     # model stricter than its request model turns a legitimately-absent field
     # into a 500 on read, which is what `location: str` did to every record
@@ -216,6 +250,10 @@ class VideoBase(ApiModel):
     date: str
     link: str
     thumbnail: str
+    #: One or two sentences shown under the title in the site's list. Optional,
+    #: because every row that predates this field has nothing to put in it and
+    #: a required field would make each one fail validation on read.
+    description: str = ""
     order: int = 0
     published: bool = True
 
@@ -229,6 +267,7 @@ class VideoUpdate(ApiModel):
     date: str | None = None
     link: str | None = None
     thumbnail: str | None = None
+    description: str | None = None
     order: int | None = None
     published: bool | None = None
 
@@ -238,3 +277,4 @@ class Video(OrderedResource):
     date: str = ""
     link: str = ""
     thumbnail: str = ""
+    description: str = ""
