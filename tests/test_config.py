@@ -208,8 +208,10 @@ class TestProductionProblems:
 
 class TestProductionWarnings:
     def test_short_secret_warns_but_does_not_block(self, production: ProductionFactory) -> None:
-        # It has to keep matching the NestJS deployment through the cutover, so
-        # refusing to boot over its length would take production down.
+        # It has to keep matching whatever signed the tokens already sitting in
+        # the owner's browser, so refusing to boot over its length would force a
+        # re-login at the worst possible moment. The NestJS deployment is gone,
+        # but the sessions it minted are not.
         settings = production(JWT_SECRET="short-but-real")
         assert settings.production_problems() == []
         assert any("at least 32" in w for w in settings.production_warnings())

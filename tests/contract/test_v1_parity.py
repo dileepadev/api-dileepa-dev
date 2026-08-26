@@ -20,7 +20,10 @@ from httpx import AsyncClient
 from app.main import create_app
 from tests.types import Headers
 
-# Every route the NestJS app served, read from src/*/**.controller.ts.
+# Every route the NestJS app served, transcribed from its `*.controller.ts`
+# files while they were still in the tree. `src/` has since been deleted, so
+# this table is now the only record of the v1 surface -- it is the parity
+# baseline, not a derived artefact, and must not be regenerated from anything.
 V1_ROUTES = [
     # `AppController` served this, returning the string "Hello World!".
     ("GET", "/"),

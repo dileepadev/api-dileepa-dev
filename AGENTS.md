@@ -12,23 +12,23 @@ Canonical instructions for AI coding agents working in this repository.
 `api-dileepa-dev` is the backend at **[api.dileepa.dev](https://api.dileepa.dev)** — the data
 source for the main website, the admin dashboard, and the blog sync pipeline.
 
-Today it is **NestJS 11 + Mongoose + MongoDB**, deployed as Vercel serverless functions.
-v2.0.0 migrates it to **FastAPI on Python 3.13**, and extends the data model with two new
-resource — `projects` — plus reshaped `events` and `blogs`, the latter for a blog that now lives on
+It is **FastAPI on Python 3.13**, deployed to FastAPI Cloud. Through v1.2.0 it was NestJS 11 +
+Mongoose on Vercel serverless; v2.0.0 replaced that and extended the data model with a new
+`projects` resource plus reshaped `events` and `blogs`, the latter for a blog that now lives on
 the main website instead of its own host.
 
-This is an architectural migration, not a framework swap.
+That was an architectural migration, not a framework swap. **The NestJS application is gone** —
+`src/`, `package.json`, `nest-cli.json` and the whole Node toolchain were removed once the
+migration was complete. There is one stack here now, and it is Python.
 
-Currently on branch `feat/v2.0.0`. Version `1.2.0`; the target is `2.0.0`.
+Version `2.0.0`.
 
 [TODO.md](TODO.md) holds this repo's slice. Issue **#13** holds the full scope. The
 cross-repository roadmap lives in `dileepadev/TODO.md`.
 
 ## Layout
 
-Both stacks are in the repository. `app/` is the FastAPI application, `src/` is the NestJS one
-still serving production. Write new code in `app/`; touch `src/` only to keep production
-working until the cutover.
+One stack. `app/` is the application; everything else is tests, operations scripts, and docs.
 
 ### `app/` — FastAPI (v2.0.0)
 
@@ -53,29 +53,7 @@ A resource with no behaviour of its own is a `crud_router(...)` call in
 `app/routers/profile.py` and nothing else. Give it its own module when it needs something the
 others do not — do not add a flag to the factory.
 
-### `src/` — NestJS (v1.2.0, still serving production)
-
-| Path | Status |
-| --- | --- |
-| `src/auth/` | JWT + local Passport strategies, RBAC guards, API-key guard |
-| `src/users/` | User schema and service, bcrypt hashes |
-| `src/{about,experiences,educations,tools,communities,videos}/` | Straight CRUD modules |
-| `src/blogs/` | Includes `POST /blogs/sync`, upsert-by-slug, API-key guarded |
-| `src/events/` | Thin. Reshaped in place under `app/routers/events.py`; the path is unchanged |
-| `src/contact/` · `src/upload/` | Contact form via Resend; image upload |
-| `src/common/filters/` | HTTP exception filter |
-
 ## Toolchain
-
-**Current (NestJS):**
-
-- Node + npm. `npm install`, then `npm run start:dev` (watch mode, port 3000).
-- `npm run build` · `npm run start:prod` · `npm run lint` · `npm run test`
-- Swagger UI at `/api`, OpenAPI JSON at `/api-json` — **development only**, disabled in
-  production. Keep it that way. (FastAPI serves the reference at `/docs` instead; see below.)
-- `.env.development` from `.env.development.example`.
-
-**Target (FastAPI, v2.0.0):**
 
 - Python 3.13 managed with `uv`. `uv sync`, then `uv run <cmd>`. Never `pip install`.
 - Run with the FastAPI CLI, not `uvicorn` directly: `uv run fastapi dev` while developing,
@@ -99,8 +77,8 @@ others do not — do not add a flag to the factory.
   `model_config` is evaluated once when the class is defined, which would bake
   in whatever `ENVIRONMENT` was at import time. Do not "simplify" it back.
 
-Run both stacks side by side during the migration. Do not delete `src/` until both consumers
-are verified against FastAPI in production and a rollback window has passed.
+The migration is complete and the NestJS application has been removed. Anything that still
+references it is describing history, not something in this repository.
 
 ## Coding standards
 
@@ -118,7 +96,7 @@ are verified against FastAPI in production and a rollback window has passed.
 
 ## Testing
 
-- FastAPI: `uv run pytest`. NestJS: `npm run test` (Jest, `*.spec.ts`), `npm run test:e2e`.
+- `uv run pytest`. The suite is offline: no live keys, no real MongoDB, no network.
 - **The parity baseline lives in `tests/contract/test_v1_parity.py`.** It lists every v1.2.0
   route and fails if one is neither served nor recorded in `INTENTIONALLY_DROPPED` with a
   reason. Add to that dict deliberately; never to make a test pass.
@@ -167,9 +145,10 @@ are verified against FastAPI in production and a rollback window has passed.
   `JWT_SECRET`, `CLOUDINARY_API_SECRET`, `RESEND_API_KEY`, `BLOG_SYNC_API_KEY`. Treat every one
   as production-critical. (`SWAGGER_PASSWORD` is gone: FastAPI serves its own docs, and they
   stay disabled in production rather than password-protected.)
-- **`JWT_SECRET`, `JWT_ALGORITHM` and `ACCESS_TOKEN_EXPIRE_MINUTES` must match the NestJS
-  deployment through the cutover**, or every existing session is invalidated the moment traffic
-  moves.
+- **`JWT_SECRET`, `JWT_ALGORITHM` and `ACCESS_TOKEN_EXPIRE_MINUTES` must keep matching the
+  values v1 signed with**, or every session it issued is invalidated. Those tokens live in
+  browsers, not in a deployment, so removing the NestJS application did not retire them — they
+  expire on their own, `REFRESH_TOKEN_EXPIRE_DAYS` after the cutover.
 - Never log a secret, a token, or a full request body containing credentials.
 - `CORS_ORIGINS` is an allowlist. Do not widen it to `*` to make something work locally.
 
@@ -220,8 +199,8 @@ are verified against FastAPI in production and a rollback window has passed.
 - **Production refuses to start when it is misconfigured.** `Settings.production_problems()`
   blocks a placeholder `JWT_SECRET`, a localhost database, a wildcard `CORS_ORIGINS`, and an
   empty `BLOG_SYNC_API_KEY`; `production_warnings()` only logs. The split matters:
-  `JWT_SECRET` **length** is a warning on purpose, because the secret has to keep matching
-  the NestJS deployment through the cutover and refusing the boot over it would take
+  `JWT_SECRET` **length** is a warning on purpose, because the secret still has to verify the
+  tokens v1 issued, and refusing the boot over a short-but-correct secret would take
   production down to fix a weakness that predates this service. The check runs in the
   lifespan, not in a validator, so tests can still build a production-shaped `Settings`.
 - **The operations scripts confirm before writing to production.** `scripts/_common.py`

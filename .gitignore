@@ -220,30 +220,6 @@ __marimo__/
 # Streamlit
 .streamlit/secrets.toml
 
-# ===== Node / NestJS (src/, still serving production until the v2.0.0 cutover) =====
-node_modules/
-/.pnp
-.pnp.js
-.eslintcache
-*.tsbuildinfo
-/coverage
-/.nyc_output
-
-# npm / yarn / pnpm logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-lerna-debug.log*
-.npm
-.yarn-integrity
-
-# Node runtime data and diagnostics
-pids
-*.seed
-*.pid.lock
-report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
-
 # ===== Environment files =====
 #   One file per environment, named by ENVIRONMENT: .env.development,
 #   .env.production, .env.staging. Only one is ever read and nothing merges.
@@ -254,7 +230,10 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 !.env.*.example
 
 # ===== Deployment =====
-.vercel
+#   FastAPI Cloud writes .fastapicloud/cloud.json when a directory is linked to
+#   an app. It holds the app and team ids, which are account-scoped rather than
+#   secret, but the folder ships its own .gitignore saying not to commit it.
+.fastapicloud/cloud.json
 
 # ===== Editors and IDEs =====
 .vscode/*
