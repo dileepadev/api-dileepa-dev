@@ -164,6 +164,10 @@ class Settings(BaseSettings):
     # Rate limits, in slowapi's notation
     rate_limit_default: str = Field(default="60/minute", alias="RATE_LIMIT_DEFAULT")
     rate_limit_contact: str = Field(default="3/minute", alias="RATE_LIMIT_CONTACT")
+    # Comments post without review, so this is the main thing standing between
+    # the blog and a spam run. Looser than contact — a reader may legitimately
+    # reply twice in a conversation — and far tighter than the default.
+    rate_limit_comment: str = Field(default="6/minute", alias="RATE_LIMIT_COMMENT")
 
     # Interactive docs stay off in production. This is the v1 posture, kept.
     docs_enabled: bool | None = Field(default=None, alias="DOCS_ENABLED")

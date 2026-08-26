@@ -38,6 +38,7 @@ from app.routers import (
     api_links,
     auth,
     blogs,
+    comments,
     contact,
     events,
     meta,
@@ -74,6 +75,13 @@ TAGS_METADATA = [
         "description": "Talks, workshops and webinars. Reshaped in v2.0.0.",
     },
     {"name": "blogs", "description": "Blog post metadata, and the sync pipeline."},
+    {
+        "name": "comments",
+        "description": (
+            "Blog comments. Posted publicly and visible immediately; moderated after the fact. "
+            "The public routes never return a commenter's email address."
+        ),
+    },
     {"name": "contact", "description": "The contact form."},
     {"name": "uploads", "description": "Cloudinary-backed image uploads."},
     {
@@ -195,6 +203,11 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects.router)
     app.include_router(events.router)
     app.include_router(blogs.router)
+    # Two routers, two audiences: the public one hangs off /blogs/{slug}/comments
+    # and cannot serialise an email; the admin one requires a token on every
+    # route, list included. See app/routers/comments.py.
+    app.include_router(comments.public_router)
+    app.include_router(comments.admin_router)
     app.include_router(contact.router)
     app.include_router(uploads_router.router)
     # Last, because it describes the ones above it. Registration order is the
