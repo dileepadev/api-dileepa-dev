@@ -22,6 +22,7 @@ from scalar_fastapi import get_scalar_api_reference
 
 from app.core.config import get_settings
 from app.core.db import mongo
+from app.core.scalar_theme import BRAND_CSS
 from app.models.meta import Health, HealthChecks, ServiceInfo, Version
 
 router = APIRouter(tags=["meta"])
@@ -105,4 +106,9 @@ async def scalar_reference() -> HTMLResponse:
         dark_mode=True,
         # No usage data leaves this deployment because someone opened the docs.
         telemetry=False,
+        # Scalar's defaults are Inter and JetBrains Mono. The brand permits
+        # Manrope and JetBrains Mono and no third family, so the default pair
+        # is turned off and the theme loads the right two itself.
+        with_default_fonts=False,
+        custom_css=BRAND_CSS,
     )

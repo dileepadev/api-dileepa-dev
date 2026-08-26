@@ -15,6 +15,7 @@ from starlette.routing import Match
 from app.core.config import get_settings
 from app.core.errors import error_body
 from app.core.routes import flatten_routes
+from app.core.scalar_theme import FONT_FILE_ORIGIN, FONT_STYLE_ORIGIN
 
 settings = get_settings()
 
@@ -148,17 +149,23 @@ _API_CSP = "default-src 'none'; frame-ancestors 'none'; base-uri 'none'"
 def _docs_csp() -> str:
     """The reference page's policy, which is narrower than "no policy".
 
-    Scalar loads its bundle from a CDN, so the strict API policy blanks the
-    page. Exempting the path entirely would be the easy fix and the wrong one:
-    this allows exactly that origin and nothing else. `unsafe-inline` is
+    Scalar loads its bundle from a CDN and the brand theme loads Manrope and
+    JetBrains Mono from Google Fonts, so the strict API policy blanks the page.
+    Exempting the path entirely would be the easy fix and the wrong one: this
+    allows exactly those three origins and nothing else. `unsafe-inline` is
     required because Scalar's loader is an inline script.
+
+    The two font origins are separate on purpose — the stylesheet comes from
+    `fonts.googleapis.com` and the font files it then requests come from
+    `fonts.gstatic.com`, so allowing only the first loads a stylesheet whose
+    every `src` is blocked.
     """
     cdn = settings.scalar_cdn_origin
     return (
         "default-src 'none'; "
         f"script-src 'self' 'unsafe-inline' {cdn}; "
-        f"style-src 'self' 'unsafe-inline' {cdn}; "
-        f"font-src 'self' data: {cdn}; "
+        f"style-src 'self' 'unsafe-inline' {cdn} {FONT_STYLE_ORIGIN}; "
+        f"font-src 'self' data: {cdn} {FONT_FILE_ORIGIN}; "
         "img-src 'self' data: https:; "
         "connect-src 'self'; "
         "frame-ancestors 'none'; "
