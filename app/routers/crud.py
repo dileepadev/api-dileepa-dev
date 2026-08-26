@@ -108,6 +108,7 @@ def crud_router(
     prefix: str,
     tag: str,
     label: str,
+    plural: str | None = None,
     read_model: type[Any],
     create_model: type[ApiModel],
     update_model: type[ApiModel],
@@ -124,6 +125,11 @@ def crud_router(
     not only the list, so a single record is never returned half-built.
     """
     router = APIRouter(prefix=prefix, tags=[tag])
+    # `f"{label}s"` is right for four of the five resources and wrong for
+    # `community`. The summaries are published — they are what the reference
+    # and the admin's endpoint panel render — so the one exception says so
+    # rather than shipping "List communitys".
+    labels = plural or f"{label}s"
     provide_repo = repository(collection)
     repo_dep = Annotated[DocumentRepository, Depends(provide_repo)]
     resolved_sort = sort or DEFAULT_SORT
@@ -142,7 +148,7 @@ def crud_router(
         return page([read_model.model_validate(prepare(doc)) for doc in documents], total, params)
 
     list_records.__name__ = f"list_{collection}"
-    list_records.__doc__ = f"List {label}s. Public callers see published records only."
+    list_records.__doc__ = f"List {labels}. Public callers see published records only."
     list_records.__annotations__ = {
         "params": ListParamsDep,
         "user": OptionalUser,
@@ -197,7 +203,7 @@ def crud_router(
         "return": ReorderResult,
     }
     reorder_records.__doc__ = (
-        f"Set the order of several {label}s in one request. Higher values sort first."
+        f"Set the order of several {labels} in one request. Higher values sort first."
     )
 
     async def update_record(identifier: str, payload: Any, _: AdminUser, repo: repo_dep) -> Any:
@@ -243,7 +249,7 @@ def crud_router(
             list_records,
             methods=["GET"],
             response_model=Page[read_model],  # type: ignore[valid-type]
-            summary=f"List {label}s",
+            summary=f"List {labels}",
         )
     router.add_api_route(
         "",
@@ -259,7 +265,7 @@ def crud_router(
         reorder_records,
         methods=["PATCH"],
         response_model=ReorderResult,
-        summary=f"Reorder {label}s",
+        summary=f"Reorder {labels}",
     )
     router.add_api_route(
         "/{identifier}",

@@ -61,6 +61,7 @@ communities_router = crud_router(
     prefix="/communities",
     tag="communities",
     label="community",
+    plural="communities",
     read_model=Community,
     create_model=CommunityCreate,
     update_model=CommunityUpdate,

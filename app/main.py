@@ -35,6 +35,7 @@ from app.core.rate_limit import (
 )
 from app.routers import (
     about,
+    api_links,
     auth,
     blogs,
     contact,
@@ -75,6 +76,13 @@ TAGS_METADATA = [
     {"name": "blogs", "description": "Blog post metadata, and the sync pipeline."},
     {"name": "contact", "description": "The contact form."},
     {"name": "uploads", "description": "Cloudinary-backed image uploads."},
+    {
+        "name": "api-links",
+        "description": (
+            "The API's own endpoint catalogue, for the admin dashboard. Admin only, "
+            "and not read by the public website."
+        ),
+    },
 ]
 
 
@@ -189,6 +197,9 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(blogs.router)
     app.include_router(contact.router)
     app.include_router(uploads_router.router)
+    # Last, because it describes the ones above it. Registration order is the
+    # order tags are read in, and a catalogue belongs after its contents.
+    app.include_router(api_links.router)
 
     return app
 

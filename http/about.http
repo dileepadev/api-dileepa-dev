@@ -25,6 +25,7 @@ Content-Type: application/json
   "name": "Dileepa Bandara",
   "title": "Software Engineer",
   "tagline": "Building things for the web",
+  "taglineDescription": "The sentence under the tagline in the hero.",
   "description": [
     "First paragraph of the about text.",
     "Second paragraph."
@@ -33,7 +34,8 @@ Content-Type: application/json
   "images": {
     "bannerWebp": "https://res.cloudinary.com/example/banner.webp",
     "profilePng": "https://res.cloudinary.com/example/profile.png",
-    "profileWebp": "https://res.cloudinary.com/example/profile.webp"
+    "profileWebp": "https://res.cloudinary.com/example/profile.webp",
+    "profileJpg": "https://res.cloudinary.com/example/profile.jpg"
   },
   "links": {
     "website": "https://dileepa.dev",
@@ -71,6 +73,33 @@ Content-Type: application/json
 
 {
   "tagline": "Building things for the web, mostly in Python"
+}
+
+### The hero, in one record. `tagline` is the display heading and
+# `taglineDescription` the line under it, so the site reads both from the
+# response it already has rather than making a second request for the second
+# half of the same sentence.
+PATCH {{baseUrl}}/about
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "tagline": "Building things for the web, mostly in Python",
+  "taglineDescription": "Backends, the tools around them, and notes on how it went."
+}
+
+### A JPEG portrait. WebP and PNG are unchanged and still preferred in that
+# order; this is a third format, not a replacement for either.
+PATCH {{baseUrl}}/about
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "images": {
+    "profileWebp": "https://res.cloudinary.com/example/profile.webp",
+    "profileJpg": "https://res.cloudinary.com/example/profile.jpg",
+    "profilePng": "https://res.cloudinary.com/example/profile.png"
+  }
 }
 
 ### Delete it.

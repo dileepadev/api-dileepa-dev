@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Awaitable, Callable, Iterator
+from collections.abc import Awaitable, Callable
 from typing import Any
 
 from fastapi import Request, Response
@@ -10,10 +10,11 @@ from slowapi import Limiter
 from slowapi.middleware import SlowAPIMiddleware, _should_exempt, async_check_limits
 from slowapi.util import get_remote_address
 from starlette.middleware.base import RequestResponseEndpoint
-from starlette.routing import BaseRoute, Match
+from starlette.routing import Match
 
 from app.core.config import get_settings
 from app.core.errors import error_body
+from app.core.routes import flatten_routes
 
 settings = get_settings()
 
@@ -42,24 +43,10 @@ def make_limiter(*default_limits: str) -> Limiter:
 limiter = make_limiter(settings.rate_limit_default)
 
 
-def _flatten(routes: list[BaseRoute]) -> Iterator[BaseRoute]:
-    """Yield real routes, descending into the routers FastAPI keeps nested.
-
-    An `_IncludedRouter` carries the router it wrapped on `.original_router`.
-    The routes inside it keep their full path — `/auth/login`, not `/login` —
-    so matching against them directly is equivalent to what the app does.
-    """
-    for route in routes:
-        nested = getattr(route, "original_router", None)
-        if nested is None:
-            yield route
-        else:
-            yield from _flatten(nested.routes)
-
-
 def _resolve_handler(app: Any, scope: Any) -> Callable[..., Any] | None:
     handler = None
-    for route in _flatten(app.routes):
+    # Nested routers and why they have to be walked: app/core/routes.py.
+    for route in flatten_routes(app.routes):
         match, _ = route.matches(scope)
         if match == Match.FULL and hasattr(route, "endpoint"):
             handler = route.endpoint
