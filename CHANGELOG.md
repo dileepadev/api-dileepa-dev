@@ -14,9 +14,9 @@ Changes are organized into the following categories:
 ### 2.0.0 — in progress on `feat/v2.0.0`
 
 The backend moves from NestJS 11 on Vercel serverless to FastAPI on Python 3.13,
-hosted on FastAPI Cloud, and gains two new resources. Both stacks are in the
-repository during the migration; `src/` is deleted only after both consumers are
-verified against FastAPI in production and a rollback window has passed.
+hosted on FastAPI Cloud, and gains two new resources. The NestJS application has
+been removed from the repository: the Vercel deployment was paused before the
+cutover, which left no fallback to preserve and no reason to keep the tree.
 
 #### Added - v2.0.0
 
@@ -144,6 +144,12 @@ verified against FastAPI in production and a rollback window has passed.
 
 #### Removed - v2.0.0
 
+- **The NestJS application.** `src/`, `test/`, `package.json`,
+  `package-lock.json`, `nest-cli.json`, `tsconfig*.json`, `eslint.config.mjs`
+  and `.prettierrc` — 95 files. This repository is a single Python project
+  with a single toolchain. The v1 route table lives on in
+  `tests/contract/test_v1_parity.py`, hardcoded rather than derived from the
+  deleted sources, so parity coverage is unaffected.
 - Azure Blob Storage. Cloudinary is the only image backend.
 - **`POST /auth/sign-in`.** Use `POST /auth/login` — same body, same token
   shape, including v1's `access_token` field name.

@@ -16,9 +16,12 @@ FastAPI Cloud, and gains two new resources. Architecture and rules are in [AGENT
 
 This is an architectural migration, not a framework swap.
 
-> [!WARNING]
-> **This repository blocks both frontends.** Keep NestJS live and serving until FastAPI is
-> verified in production. Do not delete `src/` to feel finished.
+> [!CAUTION]
+> **This repository blocks both frontends, and the API is currently down.** The plan was to keep
+> NestJS serving until FastAPI was verified; that is no longer possible. The Vercel deployment is
+> paused and every path on `api.dileepa.dev` returns `503 DEPLOYMENT_PAUSED`, so there is nothing
+> to fall back to and no rollback target. `src/` and the Node toolchain have been deleted. The
+> remaining work is a recovery, not a staged migration.
 
 ### Baseline ✅
 
@@ -32,10 +35,10 @@ This is an architectural migration, not a framework swap.
 - [x] Stand FastAPI up alongside NestJS — **not on a preview deployment; there is no such thing.**
       FastAPI Cloud does not support per-pull-request previews, and its GitHub integration deploys
       the default branch only. Verified against its documentation, not assumed. What replaces it is
-      better: the app's own `*.fastapicloud.dev` URL is live the moment a deploy finishes, while
-      `api.dileepa.dev` still resolves to Vercel — so the new service runs against the real
-      production database with NestJS carrying every live request. The cutover is staged through
-      DNS rather than through branches
+      better: the app's own `*.fastapicloud.dev` URL is live the moment a deploy finishes, so the
+      new service can be exercised against the real production database before the domain moves.
+      The staging through DNS that this assumed no longer applies — Vercel is paused, so nothing
+      is carrying live requests any more
 
 ### Contract gaps — closed ✅
 
@@ -173,12 +176,11 @@ Scripts are written and default to dry-run. Running them against the live cluste
 - [x] CI workflow — lint, format, types, tests, and the OpenAPI spec as an artifact
 - [x] Deploy workflow, manual (`workflow_dispatch`) until the cutover is observed
 - [x] Declare the entrypoint in `pyproject.toml` (`[tool.fastapi] entrypoint`)
-> [!IMPORTANT]
-> **The deploy workflow cannot be dispatched until it is on `main`.** GitHub only shows the Run
-> workflow button for a `workflow_dispatch` workflow that exists on the default branch, so the file
-> sitting on `feat/v2.0.0` is not enough. Either merge first, or deploy from the FastAPI Cloud VS
-> Code extension or a local `fastapi deploy` — both bypass Actions entirely and need only
-> `fastapi cloud login`.
+> [!NOTE]
+> **The deploy workflow is dispatchable now that it is on `main`.** GitHub only shows the Run
+> workflow button for a `workflow_dispatch` workflow that exists on the default branch, which this
+> one does. Deploying from the FastAPI Cloud VS Code extension or a local `fastapi deploy` also
+> works and bypasses Actions entirely, needing only `fastapi cloud login`.
 
 - [ ] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
 - [ ] Deploy with `fastapi deploy`; `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` in CI
@@ -187,8 +189,8 @@ Scripts are written and default to dry-run. Running them against the live cluste
 - [ ] Environment changes need a redeploy to take effect
 - [ ] **Attach `api.dileepa.dev` only after the first successful deployment** — a domain cannot be
       reserved ahead of a running app
-- [ ] Add the domain with **Zero Downtime Migration** enabled, so the certificate is issued while
-      Vercel still serves traffic. Subdomain is a `CNAME` at `api` →
+- [ ] Add the domain with **Zero Downtime Migration** enabled, so the certificate is issued
+      before traffic switches. Subdomain is a `CNAME` at `api` →
       `<domain-id>.endpoints.fastapicloud.dev.`
 - [ ] Confirm no CAA record on `dileepa.dev` blocks `pki.goog`
 - [ ] Decide the plan before production traffic moves — Hobby is 0.1 vCPU / 512 MB shared, 1-day log
@@ -228,11 +230,21 @@ Scripts are written and default to dry-run. Running them against the live cluste
       **Data migration**, **Deployment** and **Decommission** above is ticked. The issue is the only
       thing tracking that this migration is genuinely finished rather than merely shipped
 
-### Decommission — last, and only after both consumers are verified in production
+### Decommission
+
+This section was written to run last, only after both consumers were verified in production. It
+did not: the Vercel deployment was paused before the cutover, which removed the fallback and made
+keeping the NestJS tree pointless. The removal below therefore happened ahead of the documented
+order, and the consumer cutover is still outstanding.
 
 - [ ] Cut `dileepa-dev` and `admin-dileepa-dev` over; observe through a rollback window
-- [ ] Only then delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain
-- [ ] Retire the Vercel deployment
+- [x] Delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain — 95 files removed.
+      `tests/contract/test_v1_parity.py` keeps the v1 route table hardcoded in Python and never
+      read `src/`, so parity coverage is unaffected. Verified after removal: 359 passed, ruff and
+      mypy clean
+- [x] Retire the Vercel deployment — paused, and every path on `api.dileepa.dev` returns
+      `503 DEPLOYMENT_PAUSED`. The Vercel project itself still exists; delete it once FastAPI
+      Cloud has served the domain through a rollback window
 
 ## Later
 
