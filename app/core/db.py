@@ -41,6 +41,15 @@ COLLECTIONS = {
     "projects": "projects",
     "uploads": "uploads",
     "users": "users",
+    # Engagement. Neither holds anything a reader typed: `blog_views` holds one
+    # opaque key per reader per post per window and expires itself, and
+    # `blog_reactions` holds that same key against which reaction was chosen.
+    # The counts a page reads are denormalised onto the post document, because
+    # rendering a post should not aggregate a growing collection.
+    "blog_views": "blog_views",
+    "blog_reactions": "blog_reactions",
+    "comments": "comments",
+    "comment_reactions": "comment_reactions",
 }
 
 # Indexes the API depends on. Created on startup and safe to re-run.
@@ -56,6 +65,41 @@ INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
         ([("slug", ASCENDING)], {"unique": True, "name": "slug_unique"}),
         ([("publishedDate", ASCENDING)], {"name": "publishedDate"}),
         ([("tags", ASCENDING)], {"name": "tags"}),
+    ],
+    # The unique key is what makes a repeat view a no-op: the insert fails
+    # rather than the handler deciding, so two concurrent requests cannot both
+    # conclude they are the first. The TTL index is what stops this collection
+    # growing without bound — Mongo deletes each row once its window passes.
+    "blog_views": [
+        ([("key", ASCENDING)], {"unique": True, "name": "key_unique"}),
+        ([("expiresAt", ASCENDING)], {"expireAfterSeconds": 0, "name": "expiresAt_ttl"}),
+    ],
+    # One reaction per reader per post. The unique compound key is what lets a
+    # second reaction from the same reader *replace* the first instead of
+    # counting twice.
+    "blog_reactions": [
+        (
+            [("slug", ASCENDING), ("key", ASCENDING)],
+            {"unique": True, "name": "slug_key_unique"},
+        ),
+    ],
+    # Reading a post's comments is the hot path — every post page does it — and
+    # it always filters by slug and sorts by creation. `parentId` supports the
+    # threading, and `key` is what groups a repeat commenter on the moderation
+    # screen. Nothing here is unique: two people may say the same thing.
+    "comments": [
+        ([("slug", ASCENDING), ("createdAt", ASCENDING)], {"name": "slug_createdAt"}),
+        ([("parentId", ASCENDING)], {"name": "parentId"}),
+        ([("key", ASCENDING)], {"name": "key"}),
+    ],
+    # One reaction per reader per comment. The unique compound key is what lets
+    # a second reaction replace the first rather than counting twice — the same
+    # shape as `blog_reactions`, keyed on the comment instead of the slug.
+    "comment_reactions": [
+        (
+            [("commentId", ASCENDING), ("key", ASCENDING)],
+            {"unique": True, "name": "commentId_key_unique"},
+        ),
     ],
     "projects": [
         ([("slug", ASCENDING)], {"unique": True, "name": "slug_unique"}),

@@ -120,7 +120,60 @@ x-api-key: {{blogSyncApiKey}}
 ### Confirm the draft is hidden from public callers.
 GET {{baseUrl}}/blogs
 
+# ============================== engagement ==============================
+#
+# Views and reactions are the only mutable part of a post. The site's post pages
+# are static, so these are what fills the numbers in at runtime.
+#
+# Neither endpoint takes an identity. Both key on a salted hash of the caller's
+# address and the slug, so a repeat is recognisable and a reader is not.
+
+### Read the counts, plus whatever this caller already reacted with.
+GET {{baseUrl}}/blogs/{{slug}}/engagement
+
+### Count a view. Once per address per 24 hours.
+POST {{baseUrl}}/blogs/{{slug}}/views
+
+### Run it again -> still 200, and `views` has not moved. The unique index on
+### blog_views is what makes the second one a no-op, not a check in the handler.
+POST {{baseUrl}}/blogs/{{slug}}/views
+
+### React. One reaction per reader: liked | insightful | useful | learned.
+POST {{baseUrl}}/blogs/{{slug}}/reactions
+Content-Type: application/json
+
+{ "reaction": "insightful" }
+
+### Change it. The previous count goes down as the new one goes up.
+POST {{baseUrl}}/blogs/{{slug}}/reactions
+Content-Type: application/json
+
+{ "reaction": "useful" }
+
+### Send the one already chosen -> clears it. The buttons are toggles, and a
+### toggle that cannot untoggle is a trap.
+POST {{baseUrl}}/blogs/{{slug}}/reactions
+Content-Type: application/json
+
+{ "reaction": "useful" }
+
+### Clearing explicitly does the same thing.
+POST {{baseUrl}}/blogs/{{slug}}/reactions
+Content-Type: application/json
+
+{ "reaction": null }
+
 # ============================= failure cases =============================
+
+### An unknown reaction -> 422. The set is closed on purpose.
+POST {{baseUrl}}/blogs/{{slug}}/reactions
+Content-Type: application/json
+
+{ "reaction": "fire" }
+
+### Engagement on an unpublished post -> 404, not 403. Saying "exists but
+### hidden" leaks the thing being hidden.
+GET {{baseUrl}}/blogs/example-draft/engagement
 
 ### No API key -> 401 missing_api_key.
 POST {{baseUrl}}/blogs/sync

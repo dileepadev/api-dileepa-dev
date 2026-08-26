@@ -35,6 +35,7 @@ os.environ.update(
     CORS_ORIGINS="https://dileepa.dev",
     RATE_LIMIT_DEFAULT="10000/minute",
     RATE_LIMIT_CONTACT="10000/minute",
+    RATE_LIMIT_COMMENT="10000/minute",
 )
 
 from app.core.config import get_settings
@@ -69,10 +70,18 @@ COLLECTIONS = (
     "projects",
     "uploads",
     "users",
+    "blog_views",
+    "blog_reactions",
+    "comments",
+    "comment_reactions",
 )
 
 UNIQUE_FIELDS: dict[str, tuple[str, ...]] = {
     "blogs": ("slug",),
+    # The view de-duplication *is* this index. Without it here the in-memory
+    # repository would happily record the same reader twice and the dedup test
+    # would pass against a database that does not behave that way.
+    "blog_views": ("key",),
     "events": ("slug",),
     "projects": ("slug",),
     "tools": ("name",),

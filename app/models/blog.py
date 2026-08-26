@@ -21,10 +21,60 @@ caller sees**. `/blogs/sync` maps one to the other: `published = not draft`.
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Literal
 
 from pydantic import Field
 
 from app.models.common import ApiModel, Image, OrderedResource, Seo, Series
+
+#: The four reactions a reader can leave. Deliberately a closed set: an open
+#: vocabulary turns the counter into free-text storage, and a reaction that only
+#: one person can send is not a signal anyone can read.
+ReactionKind = Literal["liked", "insightful", "useful", "learned"]
+
+REACTION_KINDS: tuple[ReactionKind, ...] = ("liked", "insightful", "useful", "learned")
+
+
+class ReactionCounts(ApiModel):
+    """How many readers chose each reaction.
+
+    Denormalised onto the post so rendering it is one read. `blog_reactions`
+    remains the record of *who* chose what, and is what makes a reader able to
+    change their mind without double-counting.
+    """
+
+    liked: int = 0
+    insightful: int = 0
+    useful: int = 0
+    learned: int = 0
+
+
+class BlogEngagement(ApiModel):
+    """The mutable half of a post: counts, plus what this reader did.
+
+    Separate from `BlogPost` because the post is built into a static page and
+    these numbers are not. The page ships without them and asks for them at
+    runtime, which is also why this is a small response rather than a whole
+    post.
+    """
+
+    slug: str
+    views: int = 0
+    reactions: ReactionCounts = Field(default_factory=ReactionCounts)
+    #: What this caller reacted with, if anything. Lets the UI show its own
+    #: state as selected without a second request or a client-side guess.
+    viewer_reaction: ReactionKind | None = None
+
+
+class ReactionRequest(ApiModel):
+    """Set, change, or clear this reader's reaction.
+
+    `None` clears it. One request shape for all three because they are one
+    operation from the reader's side — the button they press is a toggle, and
+    the API should not make the client work out which verb that is.
+    """
+
+    reaction: ReactionKind | None = None
 
 
 class BlogLegacy(ApiModel):
@@ -128,6 +178,12 @@ class BlogPost(OrderedResource):
     content_hash: str = ""
     seo: Seo = Field(default_factory=Seo)
     legacy: BlogLegacy | None = None
+    #: Engagement counters. Present on the read model only — deliberately absent
+    #: from `BlogCreate`, `BlogUpdate` and `BlogSync`, so neither an admin edit
+    #: nor a pipeline re-run can overwrite a number it does not own. `/blogs/sync`
+    #: writes with `$set` over the fields it sends, and these are not among them.
+    views: int = 0
+    reactions: ReactionCounts = Field(default_factory=ReactionCounts)
 
 
 def blog_path(slug: str) -> str:

@@ -45,6 +45,10 @@ _REPOSITORY_SPEC: dict[str, tuple[str, tuple[str, ...]]] = {
     "projects": ("project", ("slug",)),
     "uploads": ("upload", ("publicId",)),
     "users": ("user", ("email",)),
+    "blog_views": ("blog view", ("key",)),
+    "blog_reactions": ("blog reaction", ()),
+    "comments": ("comment", ()),
+    "comment_reactions": ("comment reaction", ()),
 }
 
 
