@@ -2,12 +2,14 @@
 
 This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.dev)), built with [FastAPI](https://fastapi.tiangolo.com/). It provides the data behind the main site, the admin dashboard, and the blog sync pipeline.
 
-> [!IMPORTANT]
-> v2.0.0 replaced the NestJS API with this one. NestJS is **gone** — the `src/` tree, the Node
-> toolchain and the Vercel deployment have all been removed, and `api.dileepa.dev` currently
-> returns `503 DEPLOYMENT_PAUSED` from the retired Vercel app. There is no fallback to roll back
-> to, so this repository is the only thing that can serve the API. See
-> [Deployment](#deployment) for the cutover, and [TODO.md](TODO.md) for what remains.
+**Production:** `https://api.dileepa.dev` — health check at
+[`/health`](https://api.dileepa.dev/health).
+
+> [!NOTE]
+> v2.0.0 replaced the NestJS API with this one, and the cutover is complete.
+> `api.dileepa.dev` is served by FastAPI Cloud; the NestJS `src/` tree, the Node toolchain and
+> the Vercel deployment are all gone. See [Deployment](#deployment) for how it is deployed and
+> [TODO.md](TODO.md) for what remains before the release is closed out.
 
 ## Table of Contents
 
@@ -57,8 +59,8 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/dileepadev/api.dileepa.dev.git
-   cd api.dileepa.dev
+   git clone https://github.com/dileepadev/api-dileepa-dev.git
+   cd api-dileepa-dev
    ```
 
 2. Install dependencies. `uv` fetches Python 3.13 itself, so no separate
@@ -180,7 +182,11 @@ uv run python -m scripts.migrate_v1_documents --apply
 # Rewrite the blog rows off blog.dileepa.dev. Back up and restore-test first.
 uv run python -m scripts.migrate_blog_urls
 uv run python -m scripts.migrate_blog_urls --apply
-uv run python -m scripts.rollback_blog_urls --apply   # if it has to be undone
+
+# Recompute blogs.commentCount from the comments. Safe to run any time: it only
+# writes a number it has just derived. This is also the backfill.
+uv run python -m scripts.reconcile_comment_counts
+uv run python -m scripts.reconcile_comment_counts --apply
 
 # Rewrite the v1 events into the v2 shape, in place. Originals are copied to
 # events_v1_backup first, so this is reversible.
@@ -358,23 +364,12 @@ not supported, and its GitHub integration only ever deploys the repository's
 default branch — pushes to any other branch are ignored. There is no staging
 copy of this service.
 
-That used to be softened by DNS: the plan was to verify the new service on its
-own URL while Vercel kept serving `api.dileepa.dev`. **That safety net is no
-longer there.** The Vercel deployment is paused and every path on
-`api.dileepa.dev` returns `503`, so there is no old version still carrying
-traffic and nothing to fall back to.
-
-What remains is still a real verification step, just without a live comparison:
-
-1. Every app gets a default `https://<app>.fastapicloud.dev` URL, with TLS,
-   live the moment a deploy finishes.
-2. The new service is exercised there, against the **real production database**,
-   before the domain is pointed at it.
-3. The domain moves only once that is verified.
-
-Because the API is already down, the deploy is a recovery rather than a
-migration: it restores a service that is currently returning `503`, and it
-cannot make the live situation worse than it already is.
+Every app does get a default `https://<app>.fastapicloud.dev` URL with TLS, live
+the moment a deploy finishes, and that is what the build was verified against
+before the domain was pointed at it. Once the custom domain is attached, that
+default URL stops being the address to use — `https://api.dileepa.dev` is the
+production endpoint, and the health check is
+[`https://api.dileepa.dev/health`](https://api.dileepa.dev/health).
 
 ### Deploying
 
@@ -400,19 +395,31 @@ Application configuration is separate from those two, and is set with
 are write-only once set, so keep the authoritative copy in a password manager.
 **A configuration change needs a redeploy to take effect.**
 
-### Cutover status
+### Cutover status — done
 
-Steps 1 to 6 are done. The app is deployed and serving at
-`https://api-dileepa-dev-45eea810.fastapicloud.dev`, against the `production`
-database, which was populated by copying the already-migrated `development`
-database into it. Verified live: `/health` reports the database up, `/version`
-reports 2.0.0 in production, all eight security headers are present, `/docs`
-and `/api-json` return 404, CORS refuses an unlisted origin, and the rate
-limiter returns 429 with `Retry-After` past 60 requests a minute.
+`api.dileepa.dev` is served by FastAPI Cloud. The certificate was issued by
+Google Trust Services, and the Vercel deployment no longer receives traffic.
 
-What is left is step 7, attaching `api.dileepa.dev`, and step 8.
+Verified against the live domain:
 
-Each step depends on the one before it.
+| Check | Result |
+| --- | --- |
+| `GET /health` | `{"status":"ok","checks":{"database":"up"}}` |
+| `GET /version` | `2.0.0`, `production`, `fastapi` |
+| Security headers | All eight present |
+| `/docs`, `/api-json`, `/openapi.json`, `/redoc` | `404` — unregistered in production |
+| CORS | An unlisted origin receives no `Access-Control-Allow-Origin` |
+| Rate limiting | `429` with `Retry-After` past 60 requests a minute |
+| Content | 18 blogs, 26 events, 9 communities, 8 tools, 6 videos, 4 experiences, 4 educations |
+
+The `production` database was empty at cutover; every document was in
+`development`, already migrated. It was populated by copying that database
+across — 149 documents, 15 collections, `_id`s preserved, indexes recreated,
+and `development` left unmodified so it remains a byte-for-byte fallback. The
+three migration scripts were therefore never run against `production`; each
+outcome they exist to produce was verified against the live API instead.
+
+These were the steps, in the order they had to happen.
 
 | # | Step | Why it is here |
 | --- | --- | --- |
@@ -422,13 +429,15 @@ Each step depends on the one before it.
 | 4 | `scripts/verify_password_hash.py` against production | The test suite pins a hash generated here; this checks the owner's real one |
 | 5 | `fastapi cloud env set` for every value in `.env.production.example` | A missing one either fails startup or degrades a feature |
 | 6 | Deploy, and verify on the `.fastapicloud.dev` URL | The only chance to check the build against real data before it is the live API |
-| 7 | Attach `api.dileepa.dev` with **Zero Downtime Migration** | Moves the domain off the paused Vercel app; the certificate is issued before traffic switches |
+| 7 | Attach `api.dileepa.dev` with **Zero Downtime Migration** | The certificate is issued before traffic switches |
 | 8 | Confirm both consumers, then delete the Vercel project | The site and the admin are the real acceptance test |
 
-A domain cannot be reserved ahead of a running app, which is why step 7 cannot
-move earlier. Note that there is no rollback target: steps 1 to 4 are the
-reversible part, and once the domain moves the only way out is forward. The subdomain is a `CNAME` at `api` pointing to the value FastAPI
-Cloud shows for the app.
+Steps 1 to 4 were satisfied by the copy described above rather than by running
+the scripts. A domain cannot be reserved ahead of a running app, which is why
+step 7 could not move earlier; the subdomain is a `CNAME` at `api` pointing to
+the value FastAPI Cloud shows for the app. There was no rollback target once
+the domain moved — the Vercel deployment was already paused — so step 8's
+confirmation is what closes the migration out.
 
 Startup refuses a misconfigured production: a placeholder `JWT_SECRET`, a
 localhost `MONGODB_URI`, a wildcard `CORS_ORIGINS` or an empty

@@ -1,19 +1,17 @@
 name: Deploy
 
-# Production deploys are manual until the cutover is done and observed.
-# `workflow_dispatch` keeps a deploy a decision rather than a side effect of a
-# merge. Switch to `push: branches: [main]` once FastAPI Cloud has served
-# production traffic through a rollback window.
+# Production deploys are manual. `workflow_dispatch` keeps a deploy a decision
+# rather than a side effect of a merge, which is what a single-environment
+# service with no rollback target needs.
 #
 # NOTE: GitHub only offers the Run workflow button for a `workflow_dispatch`
 # workflow that exists on the **default branch**. This file is on `main`, so the
 # button is there; a copy on a feature branch alone would not be dispatchable.
 #
 # FastAPI Cloud has no preview or per-branch environments, so this deploys the
-# one production app. There is no longer an older deployment behind DNS to fall
-# back to -- the Vercel app is paused and `api.dileepa.dev` returns 503 -- so
-# verify on the app's own `*.fastapicloud.dev` URL before the domain is
-# attached. README "Deployment" has the full order.
+# one production app that serves `api.dileepa.dev`. There is nothing behind it
+# to fall back to, so verify a build on the app's own `*.fastapicloud.dev` URL
+# before it becomes the live API. README "Deployment" has the full order.
 on:
   workflow_dispatch:
     inputs:

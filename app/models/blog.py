@@ -77,15 +77,6 @@ class ReactionRequest(ApiModel):
     reaction: ReactionKind | None = None
 
 
-class BlogLegacy(ApiModel):
-    """The v1 values, kept for one release so the URL rewrite is reversible."""
-
-    link: str | None = None
-    banner_url: str | None = None
-    date: str | None = None
-    excerpt: str | None = None
-
-
 class BlogBase(ApiModel):
     slug: str = Field(pattern=r"^[a-z0-9]+(?:-[a-z0-9]+)*$", max_length=160)
     title: str
@@ -177,13 +168,18 @@ class BlogPost(OrderedResource):
     source_path: str = ""
     content_hash: str = ""
     seo: Seo = Field(default_factory=Seo)
-    legacy: BlogLegacy | None = None
     #: Engagement counters. Present on the read model only — deliberately absent
     #: from `BlogCreate`, `BlogUpdate` and `BlogSync`, so neither an admin edit
     #: nor a pipeline re-run can overwrite a number it does not own. `/blogs/sync`
     #: writes with `$set` over the fields it sends, and these are not among them.
     views: int = 0
     reactions: ReactionCounts = Field(default_factory=ReactionCounts)
+    #: Published comments, replies included. Denormalised so the blog index can
+    #: show "12 comments" without reading every thread — the whole point of the
+    #: field. Maintained with `$inc` on the four paths that can change it
+    #: (public post, owner reply, publish/unpublish, delete), never recomputed
+    #: on read. `scripts/reconcile_comment_counts.py` repairs drift.
+    comment_count: int = 0
 
 
 def blog_path(slug: str) -> str:
