@@ -182,7 +182,11 @@ uv run python -m scripts.migrate_v1_documents --apply
 # Rewrite the blog rows off blog.dileepa.dev. Back up and restore-test first.
 uv run python -m scripts.migrate_blog_urls
 uv run python -m scripts.migrate_blog_urls --apply
-uv run python -m scripts.rollback_blog_urls --apply   # if it has to be undone
+
+# Recompute blogs.commentCount from the comments. Safe to run any time: it only
+# writes a number it has just derived. This is also the backfill.
+uv run python -m scripts.reconcile_comment_counts
+uv run python -m scripts.reconcile_comment_counts --apply
 
 # Rewrite the v1 events into the v2 shape, in place. Originals are copied to
 # events_v1_backup first, so this is reversible.

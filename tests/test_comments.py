@@ -386,3 +386,136 @@ class TestCommentReactions:
             json={"reaction": "liked"},
         )
         assert "email" not in response.json()
+
+
+class TestCommentCount:
+    """`commentCount` on the post.
+
+    The field exists so the blog index can show "12 comments" without reading
+    every thread, so what matters is that the stored number matches what a
+    reader would actually count — after every path that can change it, not just
+    after a plain post.
+    """
+
+    async def count(self, client: AsyncClient) -> int:
+        post = (await client.get(f"/blogs/{SLUG}")).json()
+        return int(post["commentCount"])
+
+    async def visible(self, client: AsyncClient) -> int:
+        """What a reader would actually count: every thread plus its replies.
+
+        This endpoint returns a bare list of threads, not a paged envelope.
+        """
+        threads = (await client.get(f"/blogs/{SLUG}/comments")).json()
+        return sum(1 + len(t.get("replies", [])) for t in threads)
+
+    async def test_starts_at_zero_without_a_stored_field(self, client: AsyncClient) -> None:
+        """The seed writes no `commentCount`; a missing counter reads as zero."""
+        assert await self.count(client) == 0
+
+    async def test_posting_increments(self, client: AsyncClient) -> None:
+        await post_comment(client)
+        assert await self.count(client) == 1
+        await post_comment(client, author="Ben")
+        assert await self.count(client) == 2
+
+    async def test_a_reply_counts_too(self, client: AsyncClient) -> None:
+        """A reply is a comment. The index says "3 comments", not "2 threads"."""
+        parent = (await post_comment(client)).json()["comment"]
+        await post_comment(client, author="Ben", parentId=parent["id"])
+        assert await self.count(client) == 2
+
+    async def test_a_honeypot_hit_does_not_count(self, client: AsyncClient) -> None:
+        """Nothing was stored, so nothing may be counted."""
+        assert (await post_comment(client, honeypot="bot")).status_code == 201
+        assert await self.count(client) == 0
+
+    async def test_hiding_and_unhiding_move_the_count(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        created = (await post_comment(client)).json()["comment"]
+        assert await self.count(client) == 1
+
+        await client.patch(
+            f"/comments/{created['id']}", headers=admin_headers, json={"published": False}
+        )
+        assert await self.count(client) == 0
+
+        await client.patch(
+            f"/comments/{created['id']}", headers=admin_headers, json={"published": True}
+        )
+        assert await self.count(client) == 1
+
+    async def test_a_patch_that_changes_nothing_leaves_the_count_alone(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        """The delta comes from a transition, not from the field being present.
+
+        Setting `published` to the value it already held, or editing only the
+        body, must not drift the counter.
+        """
+        created = (await post_comment(client)).json()["comment"]
+
+        await client.patch(
+            f"/comments/{created['id']}", headers=admin_headers, json={"published": True}
+        )
+        assert await self.count(client) == 1
+
+        await client.patch(
+            f"/comments/{created['id']}", headers=admin_headers, json={"body": "Edited."}
+        )
+        assert await self.count(client) == 1
+
+    async def test_deleting_decrements(self, client: AsyncClient, admin_headers: Headers) -> None:
+        created = (await post_comment(client)).json()["comment"]
+        await client.delete(f"/comments/{created['id']}", headers=admin_headers)
+        assert await self.count(client) == 0
+
+    async def test_deleting_a_hidden_comment_does_not_double_subtract(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        """Hiding already took it off the count; deleting must not take it twice."""
+        created = (await post_comment(client)).json()["comment"]
+        await client.patch(
+            f"/comments/{created['id']}", headers=admin_headers, json={"published": False}
+        )
+        assert await self.count(client) == 0
+
+        await client.delete(f"/comments/{created['id']}", headers=admin_headers)
+        assert await self.count(client) == 0
+
+    async def test_an_unpublished_owner_reply_does_not_count(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        await client.post(
+            "/comments",
+            headers=admin_headers,
+            json={"slug": SLUG, "author": "Dileepa", "body": "Draft.", "published": False},
+        )
+        assert await self.count(client) == 0
+
+    async def test_a_published_owner_reply_counts(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        await client.post(
+            "/comments",
+            headers=admin_headers,
+            json={"slug": SLUG, "author": "Dileepa", "body": "Thanks.", "published": True},
+        )
+        assert await self.count(client) == 1
+
+    async def test_the_count_matches_what_a_reader_sees(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        """The invariant the field exists to satisfy, after a mixed sequence."""
+        first = (await post_comment(client)).json()["comment"]
+        await post_comment(client, author="Ben")
+        third = (await post_comment(client, author="Cara")).json()["comment"]
+        await post_comment(client, author="Dee", parentId=first["id"])
+
+        await client.patch(
+            f"/comments/{third['id']}", headers=admin_headers, json={"published": False}
+        )
+        await client.delete(f"/comments/{first['id']}", headers=admin_headers)
+
+        assert await self.count(client) == await self.visible(client)

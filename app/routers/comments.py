@@ -75,6 +75,24 @@ async def _post_or_404(slug: str, blogs: DocumentRepository) -> Document:
     return document
 
 
+async def _count_comment(blogs: DocumentRepository, slug: str, delta: int) -> None:
+    """Move a post's `commentCount` by `delta`.
+
+    `$inc` rather than read-then-write, for the same reason the view counter
+    uses it: two comments posted in the same instant would otherwise both read
+    the old number and write the same new one, losing a count. `$inc` treats a
+    missing field as zero, so a post written before this field existed needs no
+    backfill to start counting correctly.
+
+    A `delta` of zero is not sent. Nothing here raises: a counter that drifts is
+    a wrong number on an index page, while an exception here would fail a
+    comment that was otherwise accepted and stored. `reconcile_comment_counts.py`
+    exists to repair drift.
+    """
+    if delta:
+        await blogs.increment({"slug": slug}, {"commentCount": delta})
+
+
 async def _visible(
     slug: str,
     repo: DocumentRepository,
@@ -182,6 +200,8 @@ async def post_comment(
             "key": commenter_key(request, settings.jwt_secret),
         }
     )
+    # Always published on this path, so it always counts.
+    await _count_comment(blogs, slug, 1)
     return CommentPosted(accepted=True, comment=PublicComment.model_validate(document))
 
 
@@ -302,6 +322,8 @@ async def create_comment(
             "key": "",
         }
     )
+    # The owner can file a reply unpublished; only a visible one counts.
+    await _count_comment(blogs, payload.slug, 1 if payload.published else 0)
     return Comment.model_validate(document)
 
 
@@ -311,17 +333,31 @@ async def update_comment(
     payload: CommentUpdate,
     user: CurrentUser,
     repo: CommentsRepo,
+    blogs: BlogsRepo,
 ) -> Comment:
     """Hiding sets `published: False`; the row stays.
 
     Deletion is a separate, deliberate act. Hiding is reversible and keeps the
     replies underneath it addressable — `thread()` promotes orphaned replies to
     top level rather than losing them.
+
+    Hiding and unhiding move the post's `commentCount`, because that number
+    counts what a reader can see. The state is read before the write so the
+    delta comes from an actual transition: a PATCH that sets `published` to the
+    value it already held must not move the counter.
     """
     changes = payload.model_dump(by_alias=True, exclude_none=True)
-    document = await repo.update(comment_id, changes) if changes else await repo.get(comment_id)
+    before = await repo.get(comment_id)
+    if before is None:
+        raise NotFoundError("Comment not found.")
+
+    document = await repo.update(comment_id, changes) if changes else before
     if document is None:
         raise NotFoundError("Comment not found.")
+
+    was = bool(before.get("published", True))
+    now = bool(document.get("published", True))
+    await _count_comment(blogs, str(document.get("slug", "")), int(now) - int(was))
     return Comment.model_validate(document)
 
 
@@ -330,7 +366,20 @@ async def update_comment(
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Delete a comment",
 )
-async def delete_comment(comment_id: str, user: CurrentUser, repo: CommentsRepo) -> None:
-    """Permanent. Prefer hiding unless the content actually has to go."""
-    if await repo.delete(comment_id) is None:
+async def delete_comment(
+    comment_id: str,
+    user: CurrentUser,
+    repo: CommentsRepo,
+    blogs: BlogsRepo,
+) -> None:
+    """Permanent. Prefer hiding unless the content actually has to go.
+
+    Only a published comment was being counted, so only a published one is
+    subtracted. `delete` returns the document it removed, which is what makes
+    that decidable after the fact.
+    """
+    removed = await repo.delete(comment_id)
+    if removed is None:
         raise NotFoundError("Comment not found.")
+    if removed.get("published", True):
+        await _count_comment(blogs, str(removed.get("slug", "")), -1)
