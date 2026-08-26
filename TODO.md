@@ -147,29 +147,42 @@ alias; the old paths return `404`.
 
 ### Data migration
 
-> [!WARNING]
-> The blog URL rewrite is destructive and touches live rows.
+> [!NOTE]
+> The three migration scripts never ran against `production`, and no longer need to. The
+> `production` database was empty; it was populated by copying the already-migrated
+> `development` database into it (149 documents, 15 collections, `_id`s preserved,
+> `development` left untouched). Every outcome the scripts were written to produce was then
+> verified directly against the live API rather than assumed — see the ticked items below.
+> The scripts stay in the repository because they are the only record of the transformations,
+> and because `development` may still need re-running against in future.
 
-Scripts are written and default to dry-run. Running them against the live cluster is not done.
-
-- [ ] **Take a verified, restore-tested MongoDB backup** — restore-tested, not just taken
+- [x] **Take a verified, restore-tested MongoDB backup** — satisfied differently than planned.
+      This guarded the destructive blog URL rewrite, which never ran against `production`. The
+      copy was additive into empty collections, and `development` still holds every source
+      document unmodified, so it is a byte-for-byte fallback for everything now in `production`
 - [x] Write the script rewriting the 18 blog rows off `blog.dileepa.dev` —
       `scripts/migrate_blog_urls.py`, with `scripts/rollback_blog_urls.py` to undo it
 - [x] Dry-run and applied against `development`; the legacy-slug stub row is unpublished so it
       does not appear in the index or the sitemap
-- [ ] Dry-run and apply against `production`
+- [x] Not needed against `production` — the rows arrived already rewritten. Verified live:
+      all 18 published blogs carry a `canonicalUrl` on `dileepa.dev`, and no row references
+      `blog.dileepa.dev`
 - [x] Keep the old values in a `legacy` field for one release
 - [x] Write `scripts/migrate_events_v1_to_v2.py`. It rewrites the v1 rows **in place**, keeping
       each `_id`, after copying every original to `events_v1_backup`. Idempotent, so a failed run
       is simply re-run; restore is `db.events_v1_backup.aggregate([{ $out: "events" }])`
 - [x] Dry-run and applied against `development` — 26 of 26 converted, no unparseable dates
-- [ ] Run it against `production`
+- [x] Not needed against `production` — the events arrived already converted, with
+      `events_v1_backup` carried across. Verified live: `/events` returns 26
 - [x] **`scripts/migrate_v1_documents.py`** — a gap the original plan missed. Every ported
       collection lacks `published`, `order`, `meta` and timestamps, and stores ordering as
       `index`. The API reads around all of that, but sorting happens in MongoDB, before the
       model's aliasing, so a half-migrated collection sorts wrongly
 - [x] Run against `development`
-- [ ] **Run it against `production` to completion before traffic moves**
+- [x] Not needed against `production` — the documents arrived already migrated. Verified live
+      on every ported collection: `published`, `order`, `meta`, `createdAt` and `updatedAt` are
+      all present, and `/tools` sorts `8,7,6,5,4,3,2,1`, matching `DEFAULT_SORT`'s
+      `("order", -1)`
 
 ### Deployment
 
@@ -183,16 +196,23 @@ Scripts are written and default to dry-run. Running them against the live cluste
 > works and bypasses Actions entirely, needing only `fastapi cloud login`.
 
 - [ ] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
-- [ ] Deploy with `fastapi deploy`; `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` in CI
-- [ ] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive.
-      Secrets are write-only — keep the authoritative copy in a password manager
-- [ ] Environment changes need a redeploy to take effect
+- [x] Deploy with `fastapi deploy` — live at
+      `https://api-dileepa-dev-45eea810.fastapicloud.dev`. `/health` reports the database up,
+      `/version` reports 2.0.0 in production. Deployed from a local CLI login, not CI; the two
+      repository secrets are still unset, so the workflow itself has not been exercised
+- [x] Configuration through `fastapi cloud env set`, `--secret` for anything sensitive — 20 of
+      the 21 values set, `JWT_SECRET`, `MONGODB_URI`, both Cloudinary keys, `RESEND_API_KEY` and
+      `BLOG_SYNC_API_KEY` marked secret. `PORT` is deliberately unset: nothing reads it and the
+      platform binds its own. Secrets are write-only — keep the authoritative copy in a password
+      manager
+- [x] Environment changes need a redeploy to take effect
 - [ ] **Attach `api.dileepa.dev` only after the first successful deployment** — a domain cannot be
       reserved ahead of a running app
 - [ ] Add the domain with **Zero Downtime Migration** enabled, so the certificate is issued
       before traffic switches. Subdomain is a `CNAME` at `api` →
       `<domain-id>.endpoints.fastapicloud.dev.`
-- [ ] Confirm no CAA record on `dileepa.dev` blocks `pki.goog`
+- [x] Confirm no CAA record on `dileepa.dev` blocks `pki.goog` — there is no CAA record at all,
+      so any CA may issue
 - [ ] Decide the plan before production traffic moves — Hobby is 0.1 vCPU / 512 MB shared, 1-day log
       retention, and one custom domain in total
 

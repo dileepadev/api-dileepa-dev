@@ -400,7 +400,17 @@ Application configuration is separate from those two, and is set with
 are write-only once set, so keep the authoritative copy in a password manager.
 **A configuration change needs a redeploy to take effect.**
 
-### Cutover order
+### Cutover status
+
+Steps 1 to 6 are done. The app is deployed and serving at
+`https://api-dileepa-dev-45eea810.fastapicloud.dev`, against the `production`
+database, which was populated by copying the already-migrated `development`
+database into it. Verified live: `/health` reports the database up, `/version`
+reports 2.0.0 in production, all eight security headers are present, `/docs`
+and `/api-json` return 404, CORS refuses an unlisted origin, and the rate
+limiter returns 429 with `Retry-After` past 60 requests a minute.
+
+What is left is step 7, attaching `api.dileepa.dev`, and step 8.
 
 Each step depends on the one before it.
 
