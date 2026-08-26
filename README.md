@@ -347,15 +347,77 @@ and fails if a v1 route is neither served nor listed there.
 ## Deployment
 
 Deployed to [FastAPI Cloud](https://fastapicloud.com/) with `fastapi deploy`.
-`FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` come from
-`fastapi cloud setup-ci`; application configuration is set with
-`fastapi cloud env set`, using `--secret` for anything sensitive. Secrets there
-are write-only, so keep the authoritative copy in a password manager, and note
-that a configuration change needs a redeploy to take effect.
+The CLI ships with `fastapi[standard]` — `fastapi-cloud-cli` is already in the
+locked dependencies, so CI needs no extra install step.
 
-`api.dileepa.dev` is attached **after** the first successful deployment — a
-domain cannot be reserved ahead of a running app — with Zero Downtime Migration
-enabled, so the certificate is issued while Vercel is still serving traffic.
+### One app, one environment
+
+**FastAPI Cloud has no preview deployments.** Per-pull-request environments are
+not supported, and its GitHub integration only ever deploys the repository's
+default branch — pushes to any other branch are ignored. There is no staging
+copy of this service.
+
+That is not the constraint it first looks like, because the cutover is staged
+through DNS rather than through branches:
+
+1. Every app gets a default `https://<app>.fastapicloud.dev` URL, with TLS,
+   live the moment a deploy finishes.
+2. `api.dileepa.dev` keeps pointing at the Vercel NestJS deployment throughout.
+3. So the new service can be exercised against the **real production database**
+   on its FastAPI Cloud URL while the old one carries all live traffic.
+4. The domain moves only once that is verified.
+
+The verification window is the `.fastapicloud.dev` URL, and it is a better test
+than a preview environment would be: same data, same runtime, same
+configuration.
+
+### Deploying
+
+This repository does **not** use the GitHub integration. It deploys through
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which uses a
+deploy token and runs on `workflow_dispatch` with a typed confirmation. A deploy
+stays a decision rather than a side effect of a merge, which is what the cutover
+needs.
+
+> [!IMPORTANT]
+> **A `workflow_dispatch` workflow only appears in the Actions UI once it is on
+> the default branch.** Until this branch merges to `main`, there is no Run
+> workflow button to press — the file existing on a feature branch is not
+> enough. Deploy from the FastAPI Cloud VS Code extension or a local
+> `fastapi deploy` before then, or merge first.
+
+`FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` come from
+`fastapi cloud setup-ci`, which writes both repository secrets. Pass
+`--branch` if the deploy branch should not be `main`.
+
+Application configuration is separate from those two, and is set with
+`fastapi cloud env set`, using `--secret` for anything sensitive. Those values
+are write-only once set, so keep the authoritative copy in a password manager.
+**A configuration change needs a redeploy to take effect.**
+
+### Cutover order
+
+Each step depends on the one before it.
+
+| # | Step | Why it is here |
+| --- | --- | --- |
+| 1 | Restore-tested MongoDB backup | `migrate_blog_urls.py` rewrites live rows |
+| 2 | `scripts/migrate_v1_documents.py` against production | Every ported collection lacks `published`, `order`, `meta` and timestamps; sorting happens in MongoDB, so a half-migrated collection sorts wrongly |
+| 3 | `migrate_events_v1_to_v2.py`, then `migrate_blog_urls.py` | Originals are copied to `events_v1_backup` first; both are idempotent |
+| 4 | `scripts/verify_password_hash.py` against production | The test suite pins a hash generated here; this checks the owner's real one |
+| 5 | `fastapi cloud env set` for every value in `.env.production.example` | A missing one either fails startup or degrades a feature |
+| 6 | Deploy, and verify on the `.fastapicloud.dev` URL | NestJS is still serving; nothing is at risk yet |
+| 7 | Attach `api.dileepa.dev` with **Zero Downtime Migration** | The certificate is issued while Vercel still serves traffic |
+| 8 | Watch through a rollback window, then retire Vercel | Rollback is "leave DNS alone" right up until step 7 |
+
+A domain cannot be reserved ahead of a running app, which is why step 7 cannot
+move earlier. The subdomain is a `CNAME` at `api` pointing to the value FastAPI
+Cloud shows for the app.
+
+Startup refuses a misconfigured production: a placeholder `JWT_SECRET`, a
+localhost `MONGODB_URI`, a wildcard `CORS_ORIGINS` or an empty
+`BLOG_SYNC_API_KEY` each abort the boot rather than serve traffic. See
+[`app/core/config.py`](app/core/config.py).
 
 ## Contact
 
