@@ -337,9 +337,6 @@ dependency audit, and a pass over error handling, upload validation and the oper
       selected — on a laptop, `development`. The two mean unrelated things and read together they
       say the opposite of the truth. The banner restates the environment beside the database it
       selected, and outside production contradicts that line outright
-- [ ] **Enable Dependabot for `uv`/`pip`.** Named in issue #13's dependency requirements and
-      never configured — `.github/dependabot.yml` does not exist. The lockfile half is done
-      (`uv.lock` is committed and CI installs from it); the automated-update half is not
 
 ### Decommission
 
