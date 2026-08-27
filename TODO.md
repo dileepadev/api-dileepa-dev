@@ -96,6 +96,12 @@ All four are decided and implemented; `api-contract.md` §10 records them.
 ### New and changed resources
 
 - [x] **`/projects`** — full model, CRUD, filters. Net-new; nothing existed
+- [x] **Seeded.** The collection shipped empty, so the site served its empty state on a
+      route that was in the sitemap. `scripts/seed_projects.py` writes the initial seven,
+      idempotent by `slug` and validated through `ProjectCreate` before the database is
+      opened. Applied to `production`; `/projects` returns 7 and all seven detail pages
+      build. `status` is read off what each repository actually contains — three are a
+      README and a licence and say `concept` rather than `active`
 - [x] **`/events` reshaped** — speakers, photos, recordings, links, structured datetimes, slug,
       status. `status` is derived from `startAt` rather than stored, with an explicit `cancelled`
       respected; a field a human has to remember to update goes stale within a month.
@@ -114,6 +120,11 @@ All four are decided and implemented; `api-contract.md` §10 records them.
       strings, because nothing sorts on them
 - [x] **`description` on videos** — optional, because every row that predates the field has
       nothing to put in it and a required field would fail validation on read
+- [x] **`GET /api-links`** — the endpoint catalogue the admin dashboard renders, derived from the
+      live dependency graph by `app/core/routes.py` rather than hand-maintained. Deriving it is
+      the point: the same read that labels a route `admin` is the one the router enforces, so the
+      catalogue cannot claim one thing while the API does another. It is also what surfaced the
+      comment-moderation gap above — four routes advertising `auth=public` on every admin screen
 
 ### Blog engagement and comments ✅
 
@@ -134,6 +145,15 @@ being reversible into one.
 - [x] Moderation: `GET`/`POST`/`PATCH`/`DELETE /comments`, admin-only on **every** route
       including the list — the one collection `crud_router` could not build, because its list
       route is public by design
+- [x] **The `admin` role is actually enforced on those four routes.** They took `CurrentUser`,
+      which asks only that a token verifies, while every other write path here asks for `admin` —
+      so the line above described the intent rather than the code. Reachable, because
+      `scripts/create_user.py --role` is repeatable and accepts anything: a non-admin account can
+      exist, and `GET /comments` hands back the commenter's email and the salted `key` that
+      groups their comments, while `POST /comments` writes a reply wearing `authorIsOwner`.
+      `app/core/routes.py` derives the admin dashboard's endpoint catalogue from the same
+      dependency graph, so all four also advertised `auth=public` on every screen that rendered
+      them. Fixed together; `tests/test_comments.py` pins a non-admin token at `403` on all four
 - [x] `app/services/reactions.py` — the toggle rule, written once and shared. Two copies would
       drift into a count that no longer matches the records behind it
 - [x] Counts are absent from `BlogCreate`, `BlogUpdate` and `BlogSync`, so neither an admin edit
@@ -253,14 +273,70 @@ alias; the old paths return `404`.
 - [x] `VERSIONING.md` review — the release steps still said to bump `package.json`, which this
       repository no longer ships. Corrected to `pyproject.toml`, which is what `GET /version`
       actually reads
-- [ ] Tag `v2.0.0`. `feat/v2.0.0`, `dev` and `main` already hold identical trees, so the
+- [x] Tag `v2.0.0`. `feat/v2.0.0`, `dev` and `main` already hold identical trees, so the
       promotion is a tag rather than a merge
-- [ ] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13) — **last, and not
+- [x] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13) — **last, and not
       before.** Not when this branch merges, not when the first deploy succeeds, and not when the
       domain resolves. It closes when `api.dileepa.dev` has served production traffic from FastAPI
       Cloud through a rollback window with the Vercel deployment retired, and every box in
       **Data migration**, **Deployment** and **Decommission** above is ticked. The issue is the only
       thing tracking that this migration is genuinely finished rather than merely shipped
+
+### Development ergonomics
+
+- [x] **`GET /status`** — the admin dashboard's header reads this on every screen, so a session
+      always shows which environment, which database, and which API it is actually pointed at.
+      Registered in every environment (unlike `/maintenance/*`), because the one deployment where
+      this matters most is the one where the routes below do not exist
+
+- [x] **Work against production data without touching it.** `GET`/`POST /maintenance/database`
+      replaces the development database with a copy of production, or empties it, and the admin
+      app drives both from a Database screen. The copy was being done by hand; this is the same
+      operation with the guards written down. Five of them, layered so no single failure is
+      enough: the router is **not registered** when `ENVIRONMENT=production` (so the routes 404
+      rather than refuse), every handler re-checks anyway, `SOURCE_MONGODB_URI` must be set,
+      source and target must be different databases, and the caller has to type the target's own
+      name back. `users` is never copied. Verified end to end against both live databases:
+      development converged on production exactly, `_id`s preserved, and **production came back
+      byte-identical across all fifteen collections**
+
+### Pre-release review ✅
+
+A full read of the API before tagging, rather than a spot check. Route-by-route access control
+resolved through the dependency graph and then probed live at three credential levels, a
+dependency audit, and a pass over error handling, upload validation and the operations scripts.
+
+- [x] **Every route's access control verified, not assumed.** All 79 routes resolved through the
+      full dependency graph, then probed live with no token, a non-admin token and an admin
+      token. Every admin route answers `401` anonymous and `403` non-admin; the only mutating
+      routes reachable without a token are the seven public by design — login, refresh, contact,
+      and the four blog engagement endpoints, all rate-limited
+- [x] **The strictest rate limits were the only bypassable ones.** A `@limiter.limit` decorator
+      runs inside the endpoint and FastAPI validates the body first, so a malformed request to
+      `/contact` or the comment routes consumed no budget — and slowapi had also exempted those
+      routes from the middleware default. The two endpoints with the tightest configured limits
+      were the only ones in the API with no limit at all on invalid input. `_exempt_from_default`
+      drops that third exemption; `tests/test_rate_limit.py` fails against the old behaviour
+- [x] **A disabled account was identifiable without its password.** `account_disabled` was
+      returned before password verification, so the distinct code answered "is this address
+      registered here?" for anyone asking — the question the shared `invalid_credentials` message
+      and the timing equalisation exist to refuse. The status check now runs after verification
+- [x] **`find_or_404` ran every slug miss twice.** A follow-up branch tested `document is None`
+      twice and re-ran the query the `elif` above it had just run, and could never find anything
+      the first attempt had not. Removed; a 404 by slug is one query
+- [x] **220 dependencies audited** with `pip-audit` — no known vulnerabilities
+- [x] **No secret in the tree.** `os.environ` is read only in `app/core/config.py`, as that
+      module claims; no credential is hardcoded in `app/` or `scripts/`
+- [x] **Error responses carry nothing internal** — verified live on 422, 404, 405 and the
+      unhandled path, which logs the traceback and returns a generic message
+- [x] **Upload validation holds.** MIME allowlist, a read bounded to one byte past the limit, and
+      Cloudinary's own `resource_type: "image"` rejecting bytes that are not an image — so a
+      spoofed `Content-Type` does not land an arbitrary file
+- [x] **A startup banner naming the environment and database.** `uv run fastapi run` prints
+      "Starting FastAPI in production mode" from the CLI while holding whatever `ENVIRONMENT`
+      selected — on a laptop, `development`. The two mean unrelated things and read together they
+      say the opposite of the truth. The banner restates the environment beside the database it
+      selected, and outside production contradicts that line outright
 
 ### Decommission
 
@@ -276,8 +352,8 @@ order.
       and no deployment or DNS work for it is required by this release
 - [x] Delete `src/`, `package.json`, `nest-cli.json`, and the Node toolchain — 95 files removed.
       `tests/contract/test_v1_parity.py` keeps the v1 route table hardcoded in Python and never
-      read `src/`, so parity coverage is unaffected. Verified after removal: 359 passed, ruff and
-      mypy clean
+      read `src/`, so parity coverage is unaffected. Verified after removal: the suite was green, as it is now at 405 passed / 4 skipped, with
+      ruff and mypy clean
 - [x] Retire the Vercel deployment — `api.dileepa.dev` resolves to FastAPI Cloud and the API's
       Vercel project is disconnected. Note that the **front ends are still on Vercel**, which is
       why `cors_origin_regex` still matches `*-dileepadev-projects.vercel.app`; that pattern

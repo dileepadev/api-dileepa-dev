@@ -7,7 +7,7 @@ from typing import Any
 
 from fastapi import Request, Response
 from slowapi import Limiter
-from slowapi.middleware import SlowAPIMiddleware, _should_exempt, async_check_limits
+from slowapi.middleware import SlowAPIMiddleware, _get_route_name, async_check_limits
 from slowapi.util import get_remote_address
 from starlette.middleware.base import RequestResponseEndpoint
 from starlette.routing import Match
@@ -44,6 +44,36 @@ def make_limiter(*default_limits: str) -> Limiter:
 limiter = make_limiter(settings.rate_limit_default)
 
 
+def _exempt_from_default(limiter: Limiter, handler: Callable[..., Any] | None) -> bool:
+    """slowapi's `_should_exempt`, minus its third case.
+
+    slowapi exempts a route from the default limit for three reasons: the
+    handler could not be resolved, the route is explicitly `@limiter.exempt`,
+    or **the route carries its own `@limiter.limit` decorator**. The first two
+    are kept. The third is the one dropped, because it does not do what it
+    reads as.
+
+    A decorator limit is checked *inside* the endpoint, and FastAPI validates
+    the request body *before* calling the endpoint. So a malformed request to a
+    decorated route is answered with a 422 having consumed no budget and
+    triggered no check — and since the decorator also exempted the route from
+    the middleware, nothing else was watching either. The effect was backwards:
+    `/contact` and the comment routes, the two singled out for *stricter*
+    limits, were the only endpoints in the API with no limit at all on invalid
+    input, while every ordinary route was capped at `RATE_LIMIT_DEFAULT`.
+
+    Applying both is not double-counting in any way that matters. They are
+    separate buckets of different sizes against the same address and endpoint:
+    the decorator's tighter limit still governs anything that reaches the
+    handler, and the default now governs everything else. What a legitimate
+    caller sees is unchanged, because the tighter limit is always the one that
+    trips first.
+    """
+    if handler is None:
+        return True
+    return _get_route_name(handler) in limiter._exempt_routes
+
+
 def _resolve_handler(app: Any, scope: Any) -> Callable[..., Any] | None:
     handler = None
     # Nested routers and why they have to be walked: app/core/routes.py.
@@ -72,10 +102,16 @@ class RouterAwareSlowAPIMiddleware(SlowAPIMiddleware):
     endpoint rather than in the middleware — which is exactly why `/contact`
     kept limiting correctly and hid this for so long.
 
-    This leans on two names slowapi does not export. That is deliberate: reusing
-    its exemption and check logic keeps decorated routes behaving identically,
-    and only the handler lookup is ours. `tests/test_rate_limit.py` fails if
-    either name moves.
+    Decorated routes are **not** exempted from the default limit, which is
+    where this departs from slowapi rather than merely extending it: see
+    `_exempt_from_default` for why a decorator alone leaves an endpoint
+    unprotected against requests that never reach it.
+
+    This leans on three names slowapi does not export — `_get_route_name`,
+    `_exempt_routes` and `async_check_limits`. That is deliberate: reusing its
+    check logic keeps 429 behaviour identical, and only the handler lookup and
+    the exemption rule are ours. `tests/test_rate_limit.py` fails if any of
+    them moves.
     """
 
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
@@ -85,9 +121,10 @@ class RouterAwareSlowAPIMiddleware(SlowAPIMiddleware):
             return await call_next(request)
 
         handler = _resolve_handler(app, request.scope)
-        # Still slowapi's rule: a route carrying its own decorator is left to
-        # that decorator, so a limit is never applied twice.
-        if _should_exempt(limiter, handler):
+        # Deliberately *not* slowapi's rule — see `_exempt_from_default`. A
+        # route carrying its own decorator still gets the default limit,
+        # because the decorator cannot see a request that fails validation.
+        if _exempt_from_default(limiter, handler):
             return await call_next(request)
 
         # async, not slowapi's sync variant: `sync_check_limits` cannot await an

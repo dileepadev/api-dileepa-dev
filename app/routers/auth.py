@@ -53,14 +53,20 @@ async def _authenticate(
         # measurably faster than a wrong password.
         burn_timing()
         raise UnauthorizedError("That email and password do not match.", code="invalid_credentials")
+    matched, upgraded_hash = verify_password(payload.password, str(user.get("passwordHash", "")))
+    if not matched:
+        raise UnauthorizedError("That email and password do not match.", code="invalid_credentials")
+
+    # Checked *after* the password, not before. `account_disabled` says an
+    # address is registered here, which is worth telling the person who owns
+    # it and worth withholding from someone guessing addresses — and the
+    # difference between the two is exactly whether they know the password.
+    # Ordered the other way, the distinct code answered "is this email
+    # registered?" for anyone who asked.
     if user.get("isActive") is False:
         raise UnauthorizedError(
             "That account is disabled. Ask the owner to re-enable it.", code="account_disabled"
         )
-
-    matched, upgraded_hash = verify_password(payload.password, str(user.get("passwordHash", "")))
-    if not matched:
-        raise UnauthorizedError("That email and password do not match.", code="invalid_credentials")
 
     if upgraded_hash:
         # Transparent migration off Node's bcrypt, one sign-in at a time.

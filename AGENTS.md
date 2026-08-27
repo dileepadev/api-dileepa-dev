@@ -217,6 +217,14 @@ references it is describing history, not something in this repository.
   `key_style="endpoint"`, because slowapi's `url` default gives every distinct path its own
   budget and makes the limit on any parameterised route bypassable by varying the parameter.
   Build limiters through `make_limiter()` so tests share the real configuration.
+- **A decorated route is not exempt from the default limit.** The middleware calls
+  `_exempt_from_default`, not slowapi's `_should_exempt`, and the difference is deliberate:
+  slowapi's third exemption case hands a route to its own decorator, but that decorator runs
+  *inside* the endpoint and FastAPI validates the request body *before* calling it. A malformed
+  request therefore never reaches the check, so exempting the route left nothing watching at
+  all — and it left `/contact` and the comment routes, the two with the strictest configured
+  limits, as the only endpoints in the API with no limit on invalid input. Do not "simplify"
+  this back to `_should_exempt`. `tests/test_rate_limit.py` fails if you do.
 - **Indexes are reconciled by key pattern, not by name.** Mongoose named the indexes it
   created after the field — `users.email_1`, `blogs.slug_1` — and both are already unique.
   Mongo rejects a second index over the same keys under a different name with

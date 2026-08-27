@@ -183,6 +183,23 @@ class TestPrivacy:
         assert listing.status_code == 200
         assert listing.json()["items"][0]["email"] == "anna@example.com"
 
+    async def test_a_signed_in_non_admin_does_not_see_the_email(
+        self, client: AsyncClient, editor_headers: Headers
+    ) -> None:
+        """A valid token is not enough to read `/comments`.
+
+        These four routes took `CurrentUser`, which only asks that the token
+        verifies, while every other write path in the API asks for the `admin`
+        role. `scripts/create_user.py --role` creates accounts with any roles
+        given, so a non-admin account is a thing that can exist — and this
+        listing hands back every commenter's email address and the salted `key`
+        that groups their comments across posts.
+        """
+        await post_comment(client, email="anna@example.com")
+        listing = await client.get("/comments", headers=editor_headers)
+        assert listing.status_code == 403
+        assert listing.json()["error"]["code"] == "insufficient_role"
+
 
 class TestModeration:
     async def test_hiding_removes_a_comment_from_the_public_thread(
@@ -230,6 +247,32 @@ class TestModeration:
             await client.patch(f"/comments/{created['id']}", json={"published": False})
         ).status_code == 401
         assert (await client.delete(f"/comments/{created['id']}")).status_code == 401
+
+    async def test_moderation_requires_the_admin_role(
+        self, client: AsyncClient, editor_headers: Headers
+    ) -> None:
+        """Every route under `/comments` needs `admin`, not merely a token.
+
+        Hiding, deleting and replying-as-the-author are all owner acts: a reply
+        posted here carries `authorIsOwner`, which is the badge readers use to
+        tell the site's own voice from a visitor's.
+        """
+        created = (await post_comment(client)).json()["comment"]
+        assert (
+            await client.patch(
+                f"/comments/{created['id']}", headers=editor_headers, json={"published": False}
+            )
+        ).status_code == 403
+        assert (
+            await client.delete(f"/comments/{created['id']}", headers=editor_headers)
+        ).status_code == 403
+        assert (
+            await client.post(
+                "/comments",
+                headers=editor_headers,
+                json={"slug": SLUG, "author": "Not the owner", "body": "Impersonation attempt."},
+            )
+        ).status_code == 403
 
 
 class TestAuthorReplies:
