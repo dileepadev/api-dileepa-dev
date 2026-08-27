@@ -37,6 +37,10 @@ All notable changes are documented in the [CHANGELOG.md](CHANGELOG.md) file.
 1. Complete all features and fixes planned for the release
 2. Update the `CHANGELOG.md` with categorized entries:  
    - **Added**, **Changed**, **Fixed**, **Removed**
+   - Security work is not a category of its own. Hardening goes under **Added**
+     and a vulnerability closed goes under **Fixed**, each as a `Security`
+     subsection inside that category. Anything deprecated is recorded under
+     **Removed**, beside what replaces it.
 3. Bump `version` in [`pyproject.toml`](pyproject.toml). That is the single
    source of truth: `GET /version` reads it, through package metadata on a
    deployed install and by reading the file itself when running from a

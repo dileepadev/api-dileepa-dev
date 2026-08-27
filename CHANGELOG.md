@@ -11,20 +11,56 @@ Changes are organized into the following categories:
 
 ## [Unreleased]
 
-### 2.0.0 — ready for release
+Unreleased changes go here.
 
-The backend moves from NestJS 11 on Vercel serverless to FastAPI on Python 3.13,
-hosted on FastAPI Cloud, and gains two new resources. The NestJS application has
-been removed from the repository: the Vercel deployment was paused before the
-cutover, which left no fallback to preserve and no reason to keep the tree.
+## [2.0.0] - 2026-08-27
 
-The cutover is complete. `https://api.dileepa.dev` is served by FastAPI Cloud
-against the `production` database, and the health check is
-[`/health`](https://api.dileepa.dev/health). What remains is tagging the release
-and promoting the consumers.
+> [!IMPORTANT]
+>
+> ### 2.0.0
+>
+> Security work is not a category of its own. A hardening measure is something
+> **Added**, and a vulnerability closed is something **Fixed** — both appear as a
+> `Security` subsection inside the category they belong to, so a reader scanning
+> for what changed finds them in place rather than in a parallel list. Anything
+> deprecated is recorded under **Removed**, next to what it will become.
+>
+> The backend moves from NestJS 11 on Vercel serverless to FastAPI on Python 3.13,
+> hosted on FastAPI Cloud, and gains two new resources. The NestJS application has
+> been removed from the repository: the Vercel deployment was paused before the
+> cutover, which left no fallback to preserve and no reason to keep the tree.
+>
+> The cutover is complete. `https://api.dileepa.dev` is served by FastAPI Cloud
+> against the `production` database, and the health check is
+> [`/health`](https://api.dileepa.dev/health).
+>
+> This is a single cutover rather than a staged one, which is why nothing here is
+> carried behind a deprecation: the v1 paths that are gone return `404` from the
+> moment this ships, and the consumers move with it. Existing credentials keep
+> working — the JWT algorithm, secret and claim names are unchanged, and Node
+> `bcrypt` hashes verify as-is and are rewritten to argon2id on the next sign-in,
+> so **no password reset is required**.
 
-#### Added - v2.0.0
+### Added - v2.0.0
 
+#### Added: Endpoints, models and platform
+
+- **A startup banner naming the environment and the database it selected.** Printed on every
+  boot, because the FastAPI CLI's own line is a standing trap: `uv run fastapi run` announces
+  "Starting FastAPI in production mode" while holding whatever `ENVIRONMENT` selected, which on a
+  laptop is `development`. The two words mean unrelated things — the CLI is describing the server
+  (no reload), not the configuration — and read together they say the opposite of the truth.
+  Outside production the banner contradicts that line in as many words rather than leaving a
+  reader to infer it; in production it says writes are live. The database is shown through
+  `database_label`, so the banner carries the host and name and never the password, which matters
+  because it goes to stdout and stdout goes to the deployment's log collector.
+- **`GET /status`** — which deployment a signed-in session is actually talking to: environment,
+  version, and the database with credentials stripped. Admin only, and registered in **every**
+  environment, unlike `/maintenance/*` — a session pointed at `api.dileepa.dev` has to say
+  "production" here just as plainly as one pointed at a laptop says "development", which is the
+  one thing `/version` (public, and deliberately thin) cannot say for free: it does not carry the
+  database, since naming the Atlas cluster to an anonymous caller is not the same thing as naming
+  it to a signed-in admin.
 - **`GET`/`POST /maintenance/database` — copy production into the development database, or empty
   it.** So a developer can work against real content without touching it. **Not registered in
   production**: `app/main.py` does not include the router when `ENVIRONMENT=production`, so on
@@ -43,6 +79,7 @@ and promoting the consumers.
   `SOURCE_MONGODB_URI` should name an Atlas user with `read` on production and nothing else,
   which makes the worst outcome of every guard failing at once a failed write. Production
   refuses to start with the variable set at all.
+
 - **`scripts/seed_projects.py`** — the initial `projects` set, written once and then owned by the
   admin like every other collection. `/projects` was net-new in v2.0.0 and shipped empty, so the
   site served its empty state. Idempotent by `slug`: an existing project is updated in place,
@@ -87,14 +124,22 @@ and promoting the consumers.
   the existing access tokens.
 - `PATCH /{resource}/order` on every collection, for bulk reordering. Without it
   a drag-and-drop in the admin costs one request per row.
+- **`GET /api-links`** — the API's own endpoint catalogue, so the admin dashboard can list every
+  route with its method, auth requirement and summary without a hand-maintained copy that drifts.
+  Derived from the live dependency graph by `app/core/routes.py`, which is what makes it accurate:
+  the same read that labels a route `admin` is the one the router enforces, so a route cannot
+  advertise one thing and do another. Admin-only, and not read by the public website.
 - Contract tests that assert every v1.2.0 route is either still served or
   recorded as deliberately dropped with a reason.
+- **A `.http` request file per module** under [`http/`](http), for the VS Code REST Client
+  extension — every endpoint with a worked example, including the failure cases. Checked by
+  `tests/test_http_files.py`, which fails when a file names a route the app does not serve, so
+  they cannot rot into a set of requests that quietly stopped matching the API.
 - **`scripts/migrate_events_v1_to_v2.py`** — rewrites the v1 `events` documents
   into the v2 shape **in place**, keeping each `_id`, after copying every
   original to `events_v1_backup`. Idempotent: a row already in the v2 shape is
   recognised and skipped, so a failed run is simply re-run. Restoring is
   `db.events_v1_backup.aggregate([{ $out: "events" }])`.
-
 - **`commentCount` on every blog post.** Denormalised so the blog index can show
   "12 comments" without reading a single thread -- computing it on read is exactly
   what the field exists to avoid. Maintained with `$inc` on the four paths that
@@ -115,7 +160,37 @@ and promoting the consumers.
   actually documents, refusing to open one that carries secrets, debris or
   failing checks. It never merges and never bypasses branch protection.
 
-#### Changed - v2.0.0
+#### Added: Security
+
+- **Both workflows declare least-privilege `permissions`.** `ci.yml` and
+  `deploy.yml` each request `contents: read` rather than inheriting whatever the
+  repository default happens to be. A deploy authenticates to FastAPI Cloud with
+  its own token and needs no write access to the repository at all.
+- **Eight security headers on every response** — Content-Security-Policy
+  (`default-src 'none'`), HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
+  `Referrer-Policy`, `Permissions-Policy`, and both Cross-Origin-Opener and
+  Cross-Origin-Resource policies. Verified against the live domain, not asserted.
+- **CORS is an allowlist, never a wildcard.** Startup refuses to boot on a
+  wildcard `CORS_ORIGINS` in production. An unlisted origin receives no
+  `Access-Control-Allow-Origin` header at all.
+- **Rate limiting is enforced through a router-aware middleware.** The stock
+  SlowAPI middleware fails open on FastAPI 0.141, because `include_router` leaves
+  routers nested and the middleware finds no endpoint to read a limit from —
+  which silently disables the limit rather than reporting an error.
+- **Startup refuses a misconfigured production.** A placeholder `JWT_SECRET`, a
+  localhost `MONGODB_URI`, a wildcard `CORS_ORIGINS` or an empty
+  `BLOG_SYNC_API_KEY` each abort the boot rather than serve traffic.
+- **Errors never carry internals.** The envelope is `{ error: { code, message,
+details } }` on every path; no stack trace, driver message or query reaches a
+  client. Sign-in failures do not distinguish an unknown address from a wrong
+  password.
+- **The API reference and its spec are unregistered in production**, so neither
+  `/docs` nor `/api-json` exists to be found.
+- **No secret is committed.** No `.env` file is tracked or has ever been in this
+  repository's history; the `.example` templates carry placeholders only, and
+  both workflows read `${{ secrets.* }}`.
+
+### Changed - v2.0.0
 
 - **Collection endpoints return an envelope**, `{ items, total, limit, offset }`,
   rather than a bare array. One shape on every resource.
@@ -136,18 +211,19 @@ and promoting the consumers.
   rest.
 
   An earlier draft of this migration renamed the resource to `sessions`, on the
-  reasoning that a talk is a session *at* an event. That is reverted. The site,
+  reasoning that a talk is a session _at_ an event. That is reverted. The site,
   the admin and the person writing the records all say "event", `/events` was
   already a published URL, and a name nobody uses is a name that gets mistyped.
 
   `status` is **derived** from `startAt` rather than stored, so an event that has
   happened says so without anyone editing it. An explicit `cancelled` is
   respected — time passing does not un-cancel an event.
+
 - **Blog posts carry a relative `path` and a composed `canonicalUrl`** instead
   of an absolute `link` on `blog.dileepa.dev`, a real `publishedDate` datetime
   instead of a date string, and `description` instead of `excerpt`. The old values
   were kept under a `legacy` field during the migration and are dropped in this
-  release -- see *Removed*.
+  release -- see _Removed_.
 - **Blog banners are retired.** Posts carry no image of their own; anything a
   post shows is an ordinary Markdown image in the body pointing at a URL. The
   `banner` field **stays on the model** — removing a field from a response is
@@ -169,8 +245,57 @@ and promoting the consumers.
 - `GET /` returns `{ name, version, docs, website }` rather than the string
   `Hello World!`. `docs` is null in production rather than a dead link.
 
-#### Fixed - v2.0.0
+### Fixed - v2.0.0
 
+#### Fixed: Correctness and behaviour
+
+- **Every lookup that missed by slug cost two identical database round trips.** `find_or_404`
+  carried a follow-up branch whose condition tested `document is None` twice and which, when it
+  was reachable at all, re-ran exactly the query the `elif` above it had just run. It could never
+  find anything the first attempt had not, since an identifier is either an ObjectId or a slug and
+  the branch excluded the ObjectId case. Removed; behaviour is unchanged and a 404 by slug is now
+  one query.
+- **The deployment documentation matches the platform.** FastAPI Cloud has no preview or
+  per-pull-request environments, and its GitHub integration deploys the default branch only —
+  both verified against its documentation rather than assumed. The roadmap had carried "stand
+  FastAPI up alongside NestJS on a preview deployment" as a step the platform cannot perform.
+  What replaced it was the app's own `*.fastapicloud.dev` URL, which serves the new build
+  against the production database and is where the deployment was verified before the domain
+  moved. The staged-DNS half of that plan did not survive contact: Vercel was paused before the
+  cutover, so there was never an old version still carrying traffic to compare against or fall
+  back to. `README.md` carries the ordered cutover and its outcome.
+- **The API reference is themed against the brand tokens.** `app/core/scalar_theme.py` maps the
+  canonical sheet onto Scalar's `--scalar-*` names: Emerald Bright on Carbon and Emerald Deep on
+  Paper, declared per theme because the guide names each on the wrong ground as a hard failure;
+  Manrope and JetBrains Mono in place of Scalar's Inter pair. The docs
+  Content-Security-Policy names the two Google Fonts origins rather than being relaxed to admit
+  them.
+
+#### Fixed: Security
+
+- **The strictest rate limits were the only ones that could be bypassed entirely.** A
+  `@limiter.limit` decorator is checked _inside_ the endpoint, and FastAPI validates the request
+  body _before_ calling it — so a malformed body was answered with a `422` having consumed no
+  budget and triggered no check. slowapi also exempts a decorated route from the middleware's
+  default limit, on the reasoning that the decorator has it covered. Together those left
+  `POST /contact` (`3/minute`) and the comment routes (`6/minute`) — the two endpoints singled out
+  for the tightest limits — as the only ones in the API with **no limit at all** on invalid input,
+  while every ordinary route stayed capped at `RATE_LIMIT_DEFAULT`.
+
+  `_exempt_from_default` keeps slowapi's first two exemptions (unresolvable handler, explicit
+  `@limiter.exempt`) and drops the third, so a decorated route now also carries the default limit.
+  The two are separate buckets of different sizes: the tighter decorator limit still governs
+  anything that reaches the handler, so nothing changes for a legitimate caller. Verified against
+  a running server — flooding `/contact` with invalid bodies now returns `429` at the default
+  limit, where before it returned `422` indefinitely.
+
+- **A disabled account could be identified without knowing its password.** `_authenticate`
+  returned `account_disabled` before verifying the password, so the distinct error code answered
+  "is this address registered here?" for anyone who asked — the exact question the shared
+  `invalid_credentials` message and the timing equalisation on a missing user exist to refuse.
+  The status check now runs after verification: a wrong password on a disabled account is
+  indistinguishable from a wrong password anywhere else, and the owner still gets the specific
+  message once they have proved the account is theirs.
 - **Comment moderation now requires the `admin` role, not merely a valid token.** The four
   routes under `/comments` took `CurrentUser`, which asks only that a token verifies, while
   every other write path in the API asks for `admin`. The gap was reachable: accounts are seeded
@@ -191,56 +316,8 @@ and promoting the consumers.
   read is now bounded to one byte past the limit, and the deployment target runs in 512 MB, which
   is what made this worth fixing rather than noting. `tests/test_services.py` fails if an
   unbounded read comes back.
-- **The deployment documentation matches the platform.** FastAPI Cloud has no preview or
-  per-pull-request environments, and its GitHub integration deploys the default branch only —
-  both verified against its documentation rather than assumed. The roadmap had carried "stand
-  FastAPI up alongside NestJS on a preview deployment" as a step the platform cannot perform.
-  What replaced it was the app's own `*.fastapicloud.dev` URL, which serves the new build
-  against the production database and is where the deployment was verified before the domain
-  moved. The staged-DNS half of that plan did not survive contact: Vercel was paused before the
-  cutover, so there was never an old version still carrying traffic to compare against or fall
-  back to. `README.md` carries the ordered cutover and its outcome.
-- **The API reference is themed against the brand tokens.** `app/core/scalar_theme.py` maps the
-  canonical sheet onto Scalar's `--scalar-*` names: Emerald Bright on Carbon and Emerald Deep on
-  Paper, declared per theme because the guide names each on the wrong ground as a hard failure;
-  Manrope and JetBrains Mono in place of Scalar's Inter pair. The docs
-  Content-Security-Policy names the two Google Fonts origins rather than being relaxed to admit
-  them.
 
-#### Security - v2.0.0
-
-- **An oversized upload can no longer exhaust the process.** See *Fixed* — the
-  read is bounded rather than checked after the fact, which matters on a 512 MB
-  target.
-- **Both workflows declare least-privilege `permissions`.** `ci.yml` and
-  `deploy.yml` each request `contents: read` rather than inheriting whatever the
-  repository default happens to be. A deploy authenticates to FastAPI Cloud with
-  its own token and needs no write access to the repository at all.
-- **Eight security headers on every response** — Content-Security-Policy
-  (`default-src 'none'`), HSTS, `X-Content-Type-Options`, `X-Frame-Options`,
-  `Referrer-Policy`, `Permissions-Policy`, and both Cross-Origin-Opener and
-  Cross-Origin-Resource policies. Verified against the live domain, not asserted.
-- **CORS is an allowlist, never a wildcard.** Startup refuses to boot on a
-  wildcard `CORS_ORIGINS` in production. An unlisted origin receives no
-  `Access-Control-Allow-Origin` header at all.
-- **Rate limiting is enforced through a router-aware middleware.** The stock
-  SlowAPI middleware fails open on FastAPI 0.141, because `include_router` leaves
-  routers nested and the middleware finds no endpoint to read a limit from —
-  which silently disables the limit rather than reporting an error.
-- **Startup refuses a misconfigured production.** A placeholder `JWT_SECRET`, a
-  localhost `MONGODB_URI`, a wildcard `CORS_ORIGINS` or an empty
-  `BLOG_SYNC_API_KEY` each abort the boot rather than serve traffic.
-- **Errors never carry internals.** The envelope is `{ error: { code, message,
-  details } }` on every path; no stack trace, driver message or query reaches a
-  client. Sign-in failures do not distinguish an unknown address from a wrong
-  password.
-- **The API reference and its spec are unregistered in production**, so neither
-  `/docs` nor `/api-json` exists to be found.
-- **No secret is committed.** No `.env` file is tracked or has ever been in this
-  repository's history; the `.example` templates carry placeholders only, and
-  both workflows read `${{ secrets.* }}`.
-
-#### Removed - v2.0.0
+### Removed - v2.0.0
 
 - **The NestJS application.** `src/`, `test/`, `package.json`,
   `package-lock.json`, `nest-cli.json`, `tsconfig*.json`, `eslint.config.mjs`
@@ -262,12 +339,12 @@ and promoting the consumers.
 - **`POST /upload`, `GET /upload`, `DELETE /upload/{publicId}`.** Use the
   `/uploads` equivalents.
 
-#### Deprecated - v2.0.0
+#### Removed: Deprecated
 
 Nothing. v2.0.0 is a single cutover — the API and every consumer are released at
 the same time — so no v1 path is carried behind a deprecation and nothing is
-scheduled for removal in a later version. The v1 paths listed under *Removed*
-return `404`.
+scheduled for removal in a later version. The v1 paths listed above return
+`404` from the moment this ships, rather than warning first.
 
 `tests/contract/test_v1_parity.py` records every dropped v1 route with its
 successor, and `tests/test_openapi.py` fails if any operation is ever published
@@ -350,3 +427,4 @@ with `deprecated: true`.
 [1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.1.0
 [1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.0
 [1.2.1]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.1
+[2.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/2.0.0
