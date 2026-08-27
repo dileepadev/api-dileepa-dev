@@ -95,6 +95,11 @@ class TestSignIn:
             ("owner@dileepa.dev", "wrong", "invalid_credentials"),
             ("nobody@dileepa.dev", "whatever", "invalid_credentials"),
             ("disabled@dileepa.dev", "disabled-password", "account_disabled"),
+            # A wrong password on a disabled account must be indistinguishable
+            # from a wrong password anywhere else. `account_disabled` confirms
+            # the address is registered here, so it is only safe to return to
+            # someone who has already proved they own it.
+            ("disabled@dileepa.dev", "wrong", "invalid_credentials"),
         ],
     )
     async def test_rejections(

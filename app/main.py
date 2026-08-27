@@ -41,6 +41,7 @@ from app.routers import (
     comments,
     contact,
     events,
+    maintenance,
     meta,
     profile,
     projects,
@@ -85,6 +86,13 @@ TAGS_METADATA = [
     {"name": "contact", "description": "The contact form."},
     {"name": "uploads", "description": "Cloudinary-backed image uploads."},
     {
+        "name": "maintenance",
+        "description": (
+            "Copy production into this database, or empty it. Admin only, and **not "
+            "registered in production** — these routes do not exist on the production API."
+        ),
+    },
+    {
         "name": "api-links",
         "description": (
             "The API's own endpoint catalogue, for the admin dashboard. Admin only, "
@@ -92,6 +100,51 @@ TAGS_METADATA = [
         ),
     },
 ]
+
+
+def startup_banner(settings: Settings) -> str:
+    """What this process is actually configured as, in one unmissable block.
+
+    The FastAPI CLI prints "Starting FastAPI in production mode" for
+    `fastapi run` and "development mode" for `fastapi dev`. Both describe the
+    **server** — reload off, or reload on — and neither has anything to do with
+    `ENVIRONMENT`, which is the value that chooses the dotenv file, and with it
+    the database and the JWT secret. `uv run fastapi run` on a laptop therefore
+    announces "production mode" while holding development's database, which is
+    alarming to read and easy to misread as "I am connected to production".
+
+    So the environment is restated here beside the database it selected, where
+    the two cannot come apart. Outside production the closing lines say so
+    outright rather than leaving a reader to infer it from the line above; in
+    production they say the opposite, for the same reason.
+    """
+    rule = "─" * 66
+    rows = [
+        ("Environment", settings.environment),
+        ("Database", settings.database_label),
+        ("Docs", f"enabled at {settings.docs_path}" if settings.serve_docs else "disabled"),
+    ]
+    if settings.copy_source_configured:
+        rows.append(("Copy source", settings.source_database_label or "unset"))
+
+    lines = [rule, f"  api.dileepa.dev {app_version()}", ""]
+    lines += [f"  {label:<13}{value}" for label, value in rows]
+
+    if settings.is_production:
+        lines += [
+            "",
+            "  This is PRODUCTION. Writes are live on dileepa.dev.",
+        ]
+    else:
+        lines += [
+            "",
+            f"  ENVIRONMENT is {settings.environment!r}, so this process is not",
+            '  connected to production. Any "production mode" line above it is',
+            "  the FastAPI CLI describing the server, not this configuration.",
+        ]
+
+    lines.append(rule)
+    return "\n".join(lines)
 
 
 @asynccontextmanager
@@ -125,12 +178,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await mongo.connect(settings)
     await mongo.ensure_indexes()
+    # Printed rather than logged: it is a banner meant to be read once by a
+    # person starting the process, not an event anything would ever grep for.
+    # The log line above each warning stays a log line.
     logger.info(
-        "api.dileepa.dev started in %s against %s; docs %s",
-        settings.environment,
-        settings.database_label,
-        f"enabled at {settings.docs_path}" if settings.serve_docs else "disabled",
+        "api.dileepa.dev started in %s against %s", settings.environment, settings.database_label
     )
+    print(startup_banner(settings), flush=True)
     try:
         yield
     finally:
@@ -210,6 +264,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(comments.admin_router)
     app.include_router(contact.router)
     app.include_router(uploads_router.router)
+
+    # Not registered in production, and deliberately not merely refused there.
+    # These two routes empty the database the process is pointed at; the
+    # strongest thing that can be said about them on the production API is that
+    # they are not on it. The handlers re-check anyway — see
+    # app/routers/maintenance.py, which explains why both exist.
+    if not settings.is_production:
+        app.include_router(maintenance.router)
     # Last, because it describes the ones above it. Registration order is the
     # order tags are read in, and a catalogue belongs after its contents.
     app.include_router(api_links.router)

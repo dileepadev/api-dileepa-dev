@@ -1,4 +1,4 @@
-"""The API reference, the root endpoint, and what production does not serve.
+"""The API reference, the root endpoint, the admin status check, and what production does not serve.
 
 Scalar renders the reference at `/docs`, replacing Swagger UI and ReDoc. The v1
 posture is unchanged: docs are enabled in development and **disabled in
@@ -16,6 +16,8 @@ from httpx import ASGITransport, AsyncClient
 
 from app.core.config import get_settings
 from app.main import create_app
+
+from .types import Headers
 
 
 @pytest.fixture
@@ -89,6 +91,45 @@ class TestReference:
     async def test_is_not_in_the_schema(self, client: AsyncClient) -> None:
         spec = (await client.get("/api-json")).json()
         assert "/docs" not in spec["paths"]
+
+
+class TestStatus:
+    """`/status` — the admin dashboard's header, not `/version`'s public twin."""
+
+    async def test_needs_a_token(self, client: AsyncClient) -> None:
+        assert (await client.get("/status")).status_code == 401
+
+    async def test_a_non_admin_token_is_rejected(
+        self, client: AsyncClient, editor_headers: Headers
+    ) -> None:
+        response = await client.get("/status", headers=editor_headers)
+        assert response.status_code == 403
+        assert response.json()["error"]["code"] == "insufficient_role"
+
+    async def test_reports_the_environment_and_database(
+        self, client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        body = (await client.get("/status", headers=admin_headers)).json()
+        assert body["environment"] == "development"
+        assert body["version"]
+        # Credential-free: a host and a database name, never a password.
+        assert "@" not in body["database"]
+        assert body["docsEnabled"] is True
+        assert body["maintenanceAvailable"] is True
+
+    async def test_reports_production_as_production(
+        self, production_client: AsyncClient, admin_headers: Headers
+    ) -> None:
+        """The one thing this route exists for: an unmistakable answer.
+
+        `production_client` runs the same app-building path production does,
+        so a session pointed at it sees exactly what a session pointed at
+        `api.dileepa.dev` would — including that maintenance is unavailable.
+        """
+        body = (await production_client.get("/status", headers=admin_headers)).json()
+        assert body["environment"] == "production"
+        assert body["docsEnabled"] is False
+        assert body["maintenanceAvailable"] is False
 
 
 class TestContentSecurityPolicy:

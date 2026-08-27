@@ -20,6 +20,7 @@ from collections.abc import AsyncIterator
 import pytest
 from fastapi import APIRouter, FastAPI
 from httpx import ASGITransport, AsyncClient
+from pydantic import BaseModel
 from slowapi.errors import RateLimitExceeded
 from starlette.requests import Request
 from starlette.responses import Response
@@ -29,6 +30,10 @@ from app.core.rate_limit import (
     make_limiter,
     rate_limit_handler,
 )
+
+
+class Body(BaseModel):
+    name: str
 
 
 def build_app(limit: str = "3/minute") -> FastAPI:
@@ -66,6 +71,15 @@ def build_app(limit: str = "3/minute") -> FastAPI:
     async def decorated_endpoint(request: Request, response: Response) -> dict[str, bool]:
         # slowapi reads the address off `request` and writes its headers
         # onto `response`; both are required even though neither is used.
+        return {"ok": True}
+
+    # A decorated route that validates a body: the shape `/contact` and the
+    # comment routes have, and the one where the decorator alone is not enough.
+    @decorated.post("/decorated-body")
+    @limiter.limit("2/minute")
+    async def decorated_body(
+        request: Request, response: Response, payload: Body
+    ) -> dict[str, bool]:
         return {"ok": True}
 
     app.include_router(decorated)
@@ -123,28 +137,64 @@ class TestRoutedEndpointsAreLimited:
         assert response.headers["Retry-After"]
 
 
-class TestDecoratedRoutesAreLeftAlone:
-    async def test_the_decorator_limit_applies_not_the_default(self) -> None:
-        # 2/minute from the decorator, not the app default of 3/minute. If the
-        # middleware stopped exempting decorated routes the third request would
-        # still be allowed by one of the two limits, and the counts would drift.
+class TestDecoratedRoutes:
+    async def test_the_tighter_decorator_limit_is_the_one_that_trips(self) -> None:
+        # The decorator's 2/minute and the app default of 3/minute both apply
+        # now (see `_exempt_from_default`). A 429 fires as soon as *either* is
+        # exceeded, so the tighter one governs and the visible behaviour is the
+        # same as when decorated routes were exempted outright.
         transport = ASGITransport(app=build_app())
         async with AsyncClient(transport=transport, base_url="http://testserver") as http:
             codes = [(await http.get("/decorated")).status_code for _ in range(4)]
         assert codes == [200, 200, 429, 429]
 
 
+class TestValidationFailuresAreStillLimited:
+    """A decorator alone leaves an endpoint open to a flood of invalid requests.
+
+    `@limiter.limit` is checked inside the endpoint, and FastAPI validates the
+    request body before calling it — so a malformed body is answered with a 422
+    having consumed no budget. While decorated routes were also exempted from
+    the middleware, nothing checked them at all: `/contact` and the comment
+    routes, the two given the *strictest* limits, were the only endpoints in
+    the API with no limit whatsoever on invalid input.
+    """
+
+    async def test_a_malformed_body_still_consumes_the_default_limit(self) -> None:
+        transport = ASGITransport(app=build_app())
+        async with AsyncClient(transport=transport, base_url="http://testserver") as http:
+            codes = [(await http.post("/decorated-body", json={})).status_code for _ in range(6)]
+
+        assert 429 in codes, (
+            "A decorated route must still be limited on requests that never reach "
+            "the handler, or it is the least protected endpoint in the API."
+        )
+        # The default limit (3/minute), since the decorator never ran.
+        assert codes[:3] == [422, 422, 422]
+
+    async def test_a_valid_body_is_limited_by_the_decorator(self) -> None:
+        transport = ASGITransport(app=build_app())
+        async with AsyncClient(transport=transport, base_url="http://testserver") as http:
+            codes = [
+                (await http.post("/decorated-body", json={"name": "a"})).status_code
+                for _ in range(4)
+            ]
+        assert codes == [200, 200, 429, 429]
+
+
 class TestSlowapiInternals:
     def test_the_names_this_leans_on_still_exist(self) -> None:
-        """`RouterAwareSlowAPIMiddleware` reuses two unexported slowapi names.
+        """`RouterAwareSlowAPIMiddleware` reuses three unexported slowapi names.
 
-        If a slowapi upgrade moves either, the middleware would silently stop
-        exempting decorated routes or stop checking at all. Fail here instead.
+        If a slowapi upgrade moves any of them the middleware would silently
+        stop exempting `@limiter.exempt` routes, or stop checking at all. Fail
+        here instead.
         """
         import slowapi.middleware as middleware
 
-        assert callable(middleware._should_exempt)
+        assert callable(middleware._get_route_name)
         assert callable(middleware.async_check_limits)
+        assert hasattr(make_limiter("1/minute"), "_exempt_routes")
 
     def test_nested_routers_are_still_why_this_is_needed(self) -> None:
         """The moment FastAPI flattens `include_router` again, this is dead code.

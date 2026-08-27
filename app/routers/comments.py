@@ -9,8 +9,14 @@ Two routers, because the two audiences are not the same:
 
 - `public_router` hangs off `/blogs/{slug}/comments` and returns `PublicComment`,
   which has no field for an email address and therefore cannot leak one.
-- `admin_router` is `/comments`, requires a token on **every** route including
-  the list, and returns `Comment`, which does carry the email.
+- `admin_router` is `/comments`, requires the **admin role** on every route
+  including the list, and returns `Comment`, which does carry the email.
+  The role matters rather than merely a valid token: `Comment` exposes a
+  commenter's email address and the salted `key` that groups their
+  comments, and `POST` writes a reply carrying `authorIsOwner`. Every other
+  write path in this API requires `admin`, and these four read as though
+  they did — they were the one place a non-admin account, which
+  `scripts/create_user.py --role` can create, would have been let through.
 
 The admin routes are written out rather than built with `crud_router`. That
 helper's list route is deliberately public — it is what serves `/projects` and
@@ -27,7 +33,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response, status
 from slowapi.util import get_remote_address
 
 from app.core.config import get_settings
-from app.core.deps import CurrentUser, repository
+from app.core.deps import AdminUser, repository
 from app.core.errors import NotFoundError
 from app.core.pagination import ListParamsDep, Page, page
 from app.core.rate_limit import limiter
@@ -208,12 +214,12 @@ async def post_comment(
 @admin_router.get("", response_model=Page[Comment], summary="List comments")
 async def list_all_comments(
     params: ListParamsDep,
-    user: CurrentUser,
+    user: AdminUser,
     repo: CommentsRepo,
     slug: Annotated[str | None, Query()] = None,
     published: Annotated[bool | None, Query()] = None,
 ) -> Page[Comment]:
-    """Every comment, hidden ones included. **Authenticated only.**
+    """Every comment, hidden ones included. **Admin only.**
 
     Newest first here, unlike the public thread: this is a queue to work
     through, and the thing most likely to need attention is the newest.
@@ -289,7 +295,7 @@ async def react_to_comment(
 )
 async def create_comment(
     payload: CommentAdminCreate,
-    user: CurrentUser,
+    user: AdminUser,
     repo: CommentsRepo,
     blogs: BlogsRepo,
 ) -> Comment:
@@ -331,7 +337,7 @@ async def create_comment(
 async def update_comment(
     comment_id: str,
     payload: CommentUpdate,
-    user: CurrentUser,
+    user: AdminUser,
     repo: CommentsRepo,
     blogs: BlogsRepo,
 ) -> Comment:
@@ -368,7 +374,7 @@ async def update_comment(
 )
 async def delete_comment(
     comment_id: str,
-    user: CurrentUser,
+    user: AdminUser,
     repo: CommentsRepo,
     blogs: BlogsRepo,
 ) -> None:

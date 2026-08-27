@@ -1,0 +1,75 @@
+# Database maintenance — development only.
+#
+# Two destructive operations, both aimed at the database this API is pointed
+# at, and neither served in production. `app/main.py` does not register this
+# router when `ENVIRONMENT=production`, so on `api.dileepa.dev` every request
+# below is a 404 — not a 403. That is the strongest thing the API can say about
+# them: they are not there.
+#
+# **Pick the `development` environment before sending anything here.** Against
+# `production` these all 404, which is the correct answer and also a confusing
+# one if you did not mean to be pointed there.
+#
+# `POST /maintenance/database/copy` needs `SOURCE_MONGODB_URI` set in
+# `.env.development`, pointing at an Atlas user with `read` on production and
+# nothing else. Without it the route answers 503 rather than doing half a job.
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+
+### Where this API is pointed, what a copy would move, and whether it can run.
+# Read this before either request below. It names both databases with their
+# credentials stripped, so "which one am I about to empty" is answered rather
+# than assumed.
+GET {{baseUrl}}/maintenance/database
+Authorization: Bearer {{accessToken}}
+
+### Replace this database's contents with the source's.
+# `confirm` must be the target database's own name, which is
+# `confirmation_phrase` in the response above. Every collection except `users`
+# is emptied and refilled, `_id`s preserved.
+POST {{baseUrl}}/maintenance/database/copy
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "confirm": "dev" }
+
+### Empty this database, copying nothing into it.
+POST {{baseUrl}}/maintenance/database/clear
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "confirm": "dev" }
+
+### --- failure cases ---
+
+### A confirmation that is not the target's name -> 400 confirmation_mismatch.
+# Naming the database is the whole check. Sending "yes" is what it exists to
+# refuse.
+POST {{baseUrl}}/maintenance/database/clear
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "confirm": "yes" }
+
+### The production database's name -> 400. Being pointed at development is not
+# something you can override by naming production in the body.
+POST {{baseUrl}}/maintenance/database/copy
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "confirm": "production" }
+
+### Without a token -> 401 missing_token.
+GET {{baseUrl}}/maintenance/database
+
+### A valid token that is not an admin's -> 403 insufficient_role.
+GET {{baseUrl}}/maintenance/database
+Authorization: Bearer not-a-real-token

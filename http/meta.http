@@ -1,6 +1,6 @@
-# Meta — health, version, and the service root.
+# Meta — health, version, the service root, and the admin's status check.
 #
-# Nothing here needs a token. Start with these: if `/health` reports the
+# The first four need no token. Start with these: if `/health` reports the
 # database as down, every other file in this directory will fail in ways that
 # look like bugs in the endpoint rather than in the connection.
 
@@ -21,3 +21,28 @@ GET {{baseUrl}}/api-json
 
 ### The Scalar API reference. Development only, same as above.
 GET {{baseUrl}}/docs
+
+### --- /status: everything above, plus the database, admin only ---
+
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+
+@accessToken = {{login.response.body.$.access_token}}
+
+### What the admin dashboard's header reads: environment, version, the
+# database with credentials stripped, and whether /maintenance is registered
+# on this deployment.
+GET {{baseUrl}}/status
+Authorization: Bearer {{accessToken}}
+
+### Without a token -> 401 missing_token.
+GET {{baseUrl}}/status
+
+### A token that is not an admin's -> 403 insufficient_role.
+GET {{baseUrl}}/status
+Authorization: Bearer not-a-real-token
