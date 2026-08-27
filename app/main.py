@@ -102,6 +102,51 @@ TAGS_METADATA = [
 ]
 
 
+def startup_banner(settings: Settings) -> str:
+    """What this process is actually configured as, in one unmissable block.
+
+    The FastAPI CLI prints "Starting FastAPI in production mode" for
+    `fastapi run` and "development mode" for `fastapi dev`. Both describe the
+    **server** — reload off, or reload on — and neither has anything to do with
+    `ENVIRONMENT`, which is the value that chooses the dotenv file, and with it
+    the database and the JWT secret. `uv run fastapi run` on a laptop therefore
+    announces "production mode" while holding development's database, which is
+    alarming to read and easy to misread as "I am connected to production".
+
+    So the environment is restated here beside the database it selected, where
+    the two cannot come apart. Outside production the closing lines say so
+    outright rather than leaving a reader to infer it from the line above; in
+    production they say the opposite, for the same reason.
+    """
+    rule = "─" * 66
+    rows = [
+        ("Environment", settings.environment),
+        ("Database", settings.database_label),
+        ("Docs", f"enabled at {settings.docs_path}" if settings.serve_docs else "disabled"),
+    ]
+    if settings.copy_source_configured:
+        rows.append(("Copy source", settings.source_database_label or "unset"))
+
+    lines = [rule, f"  api.dileepa.dev {app_version()}", ""]
+    lines += [f"  {label:<13}{value}" for label, value in rows]
+
+    if settings.is_production:
+        lines += [
+            "",
+            "  This is PRODUCTION. Writes are live on dileepa.dev.",
+        ]
+    else:
+        lines += [
+            "",
+            f"  ENVIRONMENT is {settings.environment!r}, so this process is not",
+            '  connected to production. Any "production mode" line above it is',
+            "  the FastAPI CLI describing the server, not this configuration.",
+        ]
+
+    lines.append(rule)
+    return "\n".join(lines)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings = get_settings()
@@ -133,12 +178,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     await mongo.connect(settings)
     await mongo.ensure_indexes()
+    # Printed rather than logged: it is a banner meant to be read once by a
+    # person starting the process, not an event anything would ever grep for.
+    # The log line above each warning stays a log line.
     logger.info(
-        "api.dileepa.dev started in %s against %s; docs %s",
-        settings.environment,
-        settings.database_label,
-        f"enabled at {settings.docs_path}" if settings.serve_docs else "disabled",
+        "api.dileepa.dev started in %s against %s", settings.environment, settings.database_label
     )
+    print(startup_banner(settings), flush=True)
     try:
         yield
     finally:

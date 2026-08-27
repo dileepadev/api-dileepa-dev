@@ -19,8 +19,8 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
   - [Installation](#installation)
   - [Environments](#environments)
   - [Running the App](#running-the-app)
-    - [Development](#development)
-    - [Production](#production)
+    - [`fastapi dev` and `fastapi run` are both local, and both development](#fastapi-dev-and-fastapi-run-are-both-local-and-both-development)
+    - [Actually running as production](#actually-running-as-production)
     - [Scripts](#scripts)
   - [API Documentation](#api-documentation)
   - [HTTP request files](#http-request-files)
@@ -31,7 +31,11 @@ This is the API for Dileepa's personal website ([dileepa.dev](https://dileepa.de
   - [Security](#security)
   - [License](#license)
   - [API Endpoints](#api-endpoints)
+    - [Removed from v1](#removed-from-v1)
   - [Deployment](#deployment)
+    - [One app, one environment](#one-app-one-environment)
+    - [Deploying](#deploying)
+    - [Cutover status — done](#cutover-status--done)
   - [Contact](#contact)
 
 ## Tools and Technologies
@@ -129,29 +133,56 @@ missing Resend or Cloudinary credential. See
 
 Run through the FastAPI CLI, not `uvicorn` directly.
 
-### Development
+### `fastapi dev` and `fastapi run` are both local, and both development
+
+The CLI command picks how the **server** runs. `ENVIRONMENT` picks which
+**configuration** loads. They are independent, and only the second one decides
+which database you are talking to:
 
 ```bash
-uv run fastapi dev
+uv run fastapi dev    # reload on;  ENVIRONMENT unset -> .env.development
+uv run fastapi run    # reload off; ENVIRONMENT unset -> .env.development
 ```
 
-The application will be available at `http://localhost:8000` (or the configured
-`PORT`). It reads `.env.development` and nothing else, and the startup line
-names the environment and the database it connected to — worth reading before
-you assume which data you are looking at.
+`fastapi run` prints **"Starting FastAPI in production mode"**. That is the CLI
+describing itself — no reload, production-shaped server — and it is not a
+statement about your data. With `ENVIRONMENT` unset it is still reading
+`.env.development` and still connected to the development database.
 
-### Production
+So the banner the application prints immediately below it is the one to read:
 
-```bash
-uv run fastapi run
+```text
+──────────────────────────────────────────────────────────────────
+  api.dileepa.dev 2.0.0
+
+  Environment  development
+  Database     cluster0.egeox0b.mongodb.net/development
+  Docs         enabled at /docs
+  Copy source  cluster0.egeox0b.mongodb.net/production
+
+  ENVIRONMENT is 'development', so this process is not
+  connected to production. Any "production mode" line above it is
+  the FastAPI CLI describing the server, not this configuration.
+──────────────────────────────────────────────────────────────────
 ```
 
-To run production mode locally, fill in `.env.production` and export the
-environment so that file is the one loaded:
+The application is then available at `http://localhost:8000` (or the configured
+`PORT`).
+
+### Actually running as production
+
+Fill in `.env.production` and export the environment, which is what selects the
+file. Nothing else does:
 
 ```bash
 ENVIRONMENT=production uv run fastapi run
 ```
+
+The banner says `PRODUCTION` and that writes are live, `/docs` and `/api-json`
+are gone, and the `/maintenance/*` routes are not registered at all. A
+production process whose configuration is wrong refuses to start rather than
+serving traffic — see `production_problems` in
+[`app/core/config.py`](app/core/config.py).
 
 ### Scripts
 

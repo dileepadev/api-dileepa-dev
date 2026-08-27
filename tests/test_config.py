@@ -22,9 +22,11 @@ from app.core.config import (
     get_settings,
     selected_environment,
 )
+from app.main import startup_banner
 
 PROD_SECRET = "a-secret-long-enough-for-hs256-and-then-some"
 PROD_URI = "mongodb+srv://user:pw@cluster0.example.mongodb.net/dileepa"
+DEV_URI = "mongodb+srv://dev:pw@cluster0.example.mongodb.net/development"
 
 ProductionFactory = Callable[..., Settings]
 
@@ -270,3 +272,59 @@ class TestDevelopmentIsUnaffected:
 
     def test_no_warnings(self) -> None:
         assert Settings().production_warnings() == []
+
+
+class TestStartupBanner:
+    """The banner exists to stop one specific misreading.
+
+    `uv run fastapi run` on a laptop prints "Starting FastAPI in production
+    mode" from the CLI while holding development's database. These pin that the
+    banner contradicts that line outright outside production, and does not
+    contradict it in production — where the CLI happens to be right, but for an
+    unrelated reason.
+    """
+
+    def test_development_says_it_is_not_production(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        banner = startup_banner(Settings(ENVIRONMENT="development", MONGODB_URI=DEV_URI))
+
+        assert "not" in banner and "connected to production" in banner
+        assert "production mode" in banner
+        assert "development" in banner
+
+    def test_production_says_writes_are_live(self, production: ProductionFactory) -> None:
+        banner = startup_banner(production())
+
+        assert "PRODUCTION" in banner
+        assert "live on dileepa.dev" in banner
+        # The reassurance belongs only to the environments it is true of.
+        assert "not\n  connected to production" not in banner
+
+    def test_the_banner_never_carries_the_password(self, production: ProductionFactory) -> None:
+        # database_label strips credentials; this pins that the banner uses it
+        # rather than printing the URI, because the banner goes to stdout and
+        # stdout goes to whatever collects the deployment's logs.
+        banner = startup_banner(production(MONGODB_URI=PROD_URI))
+
+        assert "pw" not in banner
+        assert "@" not in banner
+        assert "cluster0.example.mongodb.net/dileepa" in banner
+
+    def test_a_configured_copy_source_is_shown(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        settings = Settings(
+            ENVIRONMENT="development",
+            MONGODB_URI=DEV_URI,
+            SOURCE_MONGODB_URI="mongodb+srv://ro:pw@cluster0.example.mongodb.net/production",
+        )
+        banner = startup_banner(settings)
+
+        assert "Copy source" in banner
+        assert "cluster0.example.mongodb.net/production" in banner
+        assert "pw" not in banner
+
+    def test_no_copy_source_row_when_unset(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        banner = startup_banner(Settings(ENVIRONMENT="development", MONGODB_URI=DEV_URI))
+
+        assert "Copy source" not in banner
