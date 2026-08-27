@@ -82,8 +82,6 @@ async def find_or_404(
         document = await repo.get(identifier)
     elif slug_field:
         document = await repo.find_one({slug_field: identifier})
-    if document is None and slug_field and document is None and not is_object_id(identifier):
-        document = await repo.find_one({slug_field: identifier})
     if document is None:
         raise NotFoundError(f"No {label} with id or slug '{identifier}'.")
     if filters and not _passes(document, filters):
