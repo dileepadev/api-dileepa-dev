@@ -309,6 +309,7 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `GET /version` | ✓ | — | |
 | `GET /` | ✓ | — | What this service is, and where the docs are |
 | `GET /docs` | ✓ | — | The API reference. **Development only** |
+| `GET /status` | — | ✓ | Environment, version and database — the admin header's status badge |
 | `GET /maintenance/database` | — | ✓ | Both databases and their counts. **Development only** |
 | `POST /maintenance/database/copy` | — | ✓ | Replace this database with a copy of the source. **Development only** |
 | `POST /maintenance/database/clear` | — | ✓ | Empty this database. **Development only** |

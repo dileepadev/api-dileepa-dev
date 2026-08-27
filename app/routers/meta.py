@@ -4,6 +4,12 @@
 v1, where it returned the string `Hello World!`; it now returns something a
 person landing on the bare domain can act on.
 
+`GET /status` is admin-only and answers a different question than `/version`:
+not "what build is this" but "which deployment is this session actually
+driving". The admin dashboard reads it for the header, so a signed-in session
+pointed at `api.dileepa.dev` cannot be mistaken for one pointed at a laptop —
+unlike `/maintenance/*`, this route is registered in every environment.
+
 The reference is rendered by **Scalar** at `/docs`, replacing Swagger UI and
 ReDoc. It is registered only when docs are enabled, so production serves
 neither the page nor the spec it reads — the v1 posture, kept.
@@ -22,8 +28,9 @@ from scalar_fastapi import get_scalar_api_reference
 
 from app.core.config import get_settings
 from app.core.db import mongo
+from app.core.deps import AdminUser
 from app.core.scalar_theme import BRAND_CSS
-from app.models.meta import Health, HealthChecks, ServiceInfo, Version
+from app.models.meta import Health, HealthChecks, ServiceInfo, SystemStatus, Version
 
 router = APIRouter(tags=["meta"])
 
@@ -87,6 +94,29 @@ async def read_version() -> Version:
         version=app_version(),
         environment=settings.environment,
         framework="fastapi",
+    )
+
+
+@router.get(
+    "/status",
+    response_model=SystemStatus,
+    summary="Which deployment this admin session is pointed at",
+)
+async def system_status(_: AdminUser) -> SystemStatus:
+    """Environment, version, and database — with credentials stripped.
+
+    `/version` answers the same "which environment" question but is public and
+    therefore deliberately thin. This carries the one field `/version` cannot:
+    `database`, which is fine to show a signed-in admin and not fine to hand
+    an anonymous caller for free, since it names the Atlas cluster.
+    """
+    settings = get_settings()
+    return SystemStatus(
+        environment=settings.environment,
+        version=app_version(),
+        database=settings.database_label,
+        docs_enabled=settings.serve_docs,
+        maintenance_available=not settings.is_production,
     )
 
 
