@@ -41,6 +41,7 @@ from app.routers import (
     comments,
     contact,
     events,
+    maintenance,
     meta,
     profile,
     projects,
@@ -84,6 +85,13 @@ TAGS_METADATA = [
     },
     {"name": "contact", "description": "The contact form."},
     {"name": "uploads", "description": "Cloudinary-backed image uploads."},
+    {
+        "name": "maintenance",
+        "description": (
+            "Copy production into this database, or empty it. Admin only, and **not "
+            "registered in production** — these routes do not exist on the production API."
+        ),
+    },
     {
         "name": "api-links",
         "description": (
@@ -210,6 +218,14 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(comments.admin_router)
     app.include_router(contact.router)
     app.include_router(uploads_router.router)
+
+    # Not registered in production, and deliberately not merely refused there.
+    # These two routes empty the database the process is pointed at; the
+    # strongest thing that can be said about them on the production API is that
+    # they are not on it. The handlers re-check anyway — see
+    # app/routers/maintenance.py, which explains why both exist.
+    if not settings.is_production:
+        app.include_router(maintenance.router)
     # Last, because it describes the ones above it. Registration order is the
     # order tags are read in, and a catalogue belongs after its contents.
     app.include_router(api_links.router)

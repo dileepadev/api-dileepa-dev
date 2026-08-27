@@ -140,6 +140,21 @@ class Settings(BaseSettings):
     mongodb_uri: str = Field(default="mongodb://localhost:27017/dileepa", alias="MONGODB_URI")
     mongodb_db: str | None = Field(default=None, alias="MONGODB_DB")
 
+    # The database `POST /maintenance/database/copy` reads from, so a developer
+    # can work against real content without touching it.
+    #
+    # **Read-only, and only ever set outside production.** The credential in
+    # here should belong to an Atlas user with `read` on the production database
+    # and nothing else, so the copy is incapable of writing to its own source
+    # even if every guard in `app/routers/maintenance.py` were removed. Leaving
+    # it unset disables the feature rather than degrading it.
+    #
+    # `production_problems` refuses to boot production with either value set:
+    # the maintenance router is not registered there at all, so a value present
+    # means the configuration was copied from the wrong file.
+    source_mongodb_uri: str = Field(default="", alias="SOURCE_MONGODB_URI")
+    source_mongodb_db: str | None = Field(default=None, alias="SOURCE_MONGODB_DB")
+
     # Auth. Algorithm, secret and access-token lifetime match what v1 used, so
     # a token it minted — which lives in a browser, not in a deployment — is
     # still valid here.
@@ -256,6 +271,27 @@ class Settings(BaseSettings):
         """Where this process is pointed, with credentials stripped."""
         return database_label(self.mongodb_uri, self.mongodb_db)
 
+    @property
+    def source_database_label(self) -> str | None:
+        """Where the copy reads from, with credentials stripped."""
+        if not self.source_mongodb_uri.strip():
+            return None
+        return database_label(self.source_mongodb_uri, self.source_mongodb_db)
+
+    @property
+    def copy_source_configured(self) -> bool:
+        return bool(self.source_mongodb_uri.strip())
+
+    @property
+    def source_is_target(self) -> bool:
+        """Whether the copy would read and write the same database.
+
+        Compared on the credential-free label rather than the raw URI, so two
+        spellings of the same cluster — a different user, a changed query
+        string — cannot present themselves as two different databases.
+        """
+        return self.source_database_label == self.database_label
+
     def production_problems(self) -> list[str]:
         """Configuration that must not reach production. Empty means safe.
 
@@ -282,6 +318,17 @@ class Settings(BaseSettings):
 
         if not self.blog_sync_api_key.strip():
             problems.append("BLOG_SYNC_API_KEY is empty, so POST /blogs/sync cannot authenticate.")
+
+        # The maintenance router is not registered in production, so nothing
+        # reads these there. A value present means production booted with
+        # another environment's file, and the next thing to ask is which of the
+        # values above came from it too.
+        if self.source_mongodb_uri.strip() or self.source_mongodb_db:
+            problems.append(
+                "SOURCE_MONGODB_URI/SOURCE_MONGODB_DB are set. They configure the "
+                "development-only database copy, which production does not serve, so this "
+                "configuration did not come from .env.production."
+            )
 
         return problems
 

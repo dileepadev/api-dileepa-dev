@@ -201,6 +201,20 @@ class TestProductionProblems:
         problems = production(CORS_ORIGINS="*").production_problems()
         assert any("CORS_ORIGINS" in p for p in problems)
 
+    def test_a_copy_source_is_refused(self, production: ProductionFactory) -> None:
+        """Production does not serve the maintenance routes, so nothing reads these.
+
+        A value present therefore means production booted with another
+        environment's file, and the next question is which of the other values
+        came from it too — so this stops the boot rather than being ignored.
+        """
+        problems = production(SOURCE_MONGODB_URI=PROD_URI).production_problems()
+        assert any("SOURCE_MONGODB_URI" in problem for problem in problems)
+
+    def test_a_copy_source_database_alone_is_refused(self, production: ProductionFactory) -> None:
+        problems = production(SOURCE_MONGODB_DB="production").production_problems()
+        assert any("SOURCE_MONGODB_URI" in problem for problem in problems)
+
     def test_missing_blog_sync_key_is_refused(self, production: ProductionFactory) -> None:
         problems = production(BLOG_SYNC_API_KEY="").production_problems()
         assert any("BLOG_SYNC_API_KEY" in p for p in problems)
