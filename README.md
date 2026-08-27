@@ -309,10 +309,23 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `GET /version` | ✓ | — | |
 | `GET /` | ✓ | — | What this service is, and where the docs are |
 | `GET /docs` | ✓ | — | The API reference. **Development only** |
+| `GET /maintenance/database` | — | ✓ | Both databases and their counts. **Development only** |
+| `POST /maintenance/database/copy` | — | ✓ | Replace this database with a copy of the source. **Development only** |
+| `POST /maintenance/database/clear` | — | ✓ | Empty this database. **Development only** |
 
 Every collection also takes `PATCH /{resource}/order` for bulk reordering, and
 `POST` / `PATCH /{id}` / `DELETE /{id}` for admin writes. `PATCH` is a partial
 update: only the fields sent are changed.
+
+**Development only** means the route is not registered at all when
+`ENVIRONMENT=production` — `api.dileepa.dev` answers `404`, not `403`. For the
+three `/maintenance` routes that is deliberate and load-bearing: they empty the
+database the process is pointed at, and the strongest thing that can be said
+about them on the production API is that they are not on it. See
+[`app/routers/maintenance.py`](app/routers/maintenance.py) for the other four
+guards, and `SOURCE_MONGODB_URI` in
+[`.env.development.example`](.env.development.example) for the read-only Atlas
+user the copy should read through.
 
 Every collection also serves a single record at `GET /{resource}/{id}`. Where a
 resource carries a slug the same route accepts either, which is why the rows

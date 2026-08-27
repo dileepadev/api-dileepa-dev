@@ -25,6 +25,32 @@ and promoting the consumers.
 
 #### Added - v2.0.0
 
+- **`GET`/`POST /maintenance/database` — copy production into the development database, or empty
+  it.** So a developer can work against real content without touching it. **Not registered in
+  production**: `app/main.py` does not include the router when `ENVIRONMENT=production`, so on
+  `api.dileepa.dev` all three routes are a `404` rather than a `403` — they are not there to
+  refuse. Four more guards behind that one: every handler re-checks the environment,
+  `SOURCE_MONGODB_URI` must be set, source and target must differ (compared on their
+  credential-free `host/database` labels, so two spellings of one cluster cannot pass as two),
+  and the caller must send the target database's own name back as `confirm`.
+
+  The direction cannot invert, because the target is never chosen: it is the connection the
+  process already opened from `MONGODB_URI`, and the only one anything here writes through. The
+  source is opened per request, read from, and closed. `users` is never copied — it holds the
+  password hash the admin signs in with, and replacing it would change the credentials of the
+  environment you are standing in, mid-session.
+
+  `SOURCE_MONGODB_URI` should name an Atlas user with `read` on production and nothing else,
+  which makes the worst outcome of every guard failing at once a failed write. Production
+  refuses to start with the variable set at all.
+- **`scripts/seed_projects.py`** — the initial `projects` set, written once and then owned by the
+  admin like every other collection. `/projects` was net-new in v2.0.0 and shipped empty, so the
+  site served its empty state. Idempotent by `slug`: an existing project is updated in place,
+  keeping its `_id`, its `createdAt` and any ordering the admin has since given it, so a second
+  run repairs drift rather than duplicating. Every record is validated through `ProjectCreate`
+  before the database is opened, and `status` is read off what is actually committed to each
+  repository rather than written to flatter — three of the seven are a README and a licence, and
+  they say `concept`.
 - FastAPI 0.141.x application under `app/`, on Python 3.13 managed with `uv`.
   Ruff for lint and format, mypy in strict mode, pytest with httpx for tests.
 - Async MongoDB access through PyMongo's async driver, against the same cluster
@@ -145,6 +171,20 @@ and promoting the consumers.
 
 #### Fixed - v2.0.0
 
+- **Comment moderation now requires the `admin` role, not merely a valid token.** The four
+  routes under `/comments` took `CurrentUser`, which asks only that a token verifies, while
+  every other write path in the API asks for `admin`. The gap was reachable: accounts are seeded
+  with `scripts/create_user.py`, whose `--role` is repeatable and accepts anything, so a
+  non-admin account is a thing that can exist. What it reached matters — `GET /comments` returns
+  the admin-only `Comment`, which carries the commenter's email address and the salted `key`
+  that groups their comments across posts, and `POST /comments` writes a reply carrying
+  `authorIsOwner`, the badge readers use to tell the site's own voice from a visitor's. The
+  module docstring and this changelog both already described these routes as admin-only; the
+  code is what disagreed. `app/core/routes.py` reads the same dependency graph to label the
+  endpoint catalogue the admin dashboard renders, so all four also advertised themselves as
+  `auth=public` on every admin screen. Both are corrected by the one change.
+  `tests/test_comments.py` pins a non-admin token at `403` on the list, the edit, the delete and
+  the author reply.
 - **An oversized upload is rejected without being read into memory first.** `POST /uploads`
   checked the size limit after `await file.read()`, which materialises the whole body — so a
   caller sending a multi-gigabyte file exhausted the process rather than receiving a `400`. The

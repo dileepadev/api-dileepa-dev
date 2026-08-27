@@ -96,6 +96,12 @@ All four are decided and implemented; `api-contract.md` §10 records them.
 ### New and changed resources
 
 - [x] **`/projects`** — full model, CRUD, filters. Net-new; nothing existed
+- [x] **Seeded.** The collection shipped empty, so the site served its empty state on a
+      route that was in the sitemap. `scripts/seed_projects.py` writes the initial seven,
+      idempotent by `slug` and validated through `ProjectCreate` before the database is
+      opened. Applied to `production`; `/projects` returns 7 and all seven detail pages
+      build. `status` is read off what each repository actually contains — three are a
+      README and a licence and say `concept` rather than `active`
 - [x] **`/events` reshaped** — speakers, photos, recordings, links, structured datetimes, slug,
       status. `status` is derived from `startAt` rather than stored, with an explicit `cancelled`
       respected; a field a human has to remember to update goes stale within a month.
@@ -134,6 +140,15 @@ being reversible into one.
 - [x] Moderation: `GET`/`POST`/`PATCH`/`DELETE /comments`, admin-only on **every** route
       including the list — the one collection `crud_router` could not build, because its list
       route is public by design
+- [x] **The `admin` role is actually enforced on those four routes.** They took `CurrentUser`,
+      which asks only that a token verifies, while every other write path here asks for `admin` —
+      so the line above described the intent rather than the code. Reachable, because
+      `scripts/create_user.py --role` is repeatable and accepts anything: a non-admin account can
+      exist, and `GET /comments` hands back the commenter's email and the salted `key` that
+      groups their comments, while `POST /comments` writes a reply wearing `authorIsOwner`.
+      `app/core/routes.py` derives the admin dashboard's endpoint catalogue from the same
+      dependency graph, so all four also advertised `auth=public` on every screen that rendered
+      them. Fixed together; `tests/test_comments.py` pins a non-admin token at `403` on all four
 - [x] `app/services/reactions.py` — the toggle rule, written once and shared. Two copies would
       drift into a count that no longer matches the records behind it
 - [x] Counts are absent from `BlogCreate`, `BlogUpdate` and `BlogSync`, so neither an admin edit
@@ -261,6 +276,19 @@ alias; the old paths return `404`.
       Cloud through a rollback window with the Vercel deployment retired, and every box in
       **Data migration**, **Deployment** and **Decommission** above is ticked. The issue is the only
       thing tracking that this migration is genuinely finished rather than merely shipped
+
+### Development ergonomics
+
+- [x] **Work against production data without touching it.** `GET`/`POST /maintenance/database`
+      replaces the development database with a copy of production, or empties it, and the admin
+      app drives both from a Database screen. The copy was being done by hand; this is the same
+      operation with the guards written down. Five of them, layered so no single failure is
+      enough: the router is **not registered** when `ENVIRONMENT=production` (so the routes 404
+      rather than refuse), every handler re-checks anyway, `SOURCE_MONGODB_URI` must be set,
+      source and target must be different databases, and the caller has to type the target's own
+      name back. `users` is never copied. Verified end to end against both live databases:
+      development converged on production exactly, `_id`s preserved, and **production came back
+      byte-identical across all fifteen collections**
 
 ### Decommission
 
