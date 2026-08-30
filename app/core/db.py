@@ -50,6 +50,7 @@ COLLECTIONS = {
     "blog_reactions": "blog_reactions",
     "comments": "comments",
     "comment_reactions": "comment_reactions",
+    "contacts": "contacts",
 }
 
 # Indexes the API depends on. Created on startup and safe to re-run.
@@ -112,6 +113,7 @@ INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
         ([("status", ASCENDING)], {"name": "status"}),
     ],
     "uploads": [([("publicId", ASCENDING)], {"unique": True, "name": "publicId_unique"})],
+    "contacts": [([("createdAt", ASCENDING)], {"name": "createdAt"})],
 }
 
 

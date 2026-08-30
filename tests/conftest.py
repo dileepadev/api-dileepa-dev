@@ -74,6 +74,7 @@ COLLECTIONS = (
     "blog_reactions",
     "comments",
     "comment_reactions",
+    "contacts",
 )
 
 UNIQUE_FIELDS: dict[str, tuple[str, ...]] = {

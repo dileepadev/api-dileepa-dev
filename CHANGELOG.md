@@ -189,6 +189,7 @@ details } }` on every path; no stack trace, driver message or query reaches a
 - **No secret is committed.** No `.env` file is tracked or has ever been in this
   repository's history; the `.example` templates carry placeholders only, and
   both workflows read `${{ secrets.* }}`.
+- **Contact submissions saved to database.** In addition to dispatching an email notification via Resend, `POST /contact` now persists incoming contact form messages (`name`, `email`, `subject`, and `message`) to the MongoDB `contacts` collection.
 
 ### Changed - v2.0.0
 
