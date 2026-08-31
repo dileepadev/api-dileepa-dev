@@ -1,24 +1,28 @@
 name: Deploy
 
-# Production deploys are manual. `workflow_dispatch` keeps a deploy a decision
-# rather than a side effect of a merge, which is what a single-environment
-# service with no rollback target needs.
+# `main` is the release branch, so every merge into it is a release and the
+# deploy follows it. This was `workflow_dispatch` with a typed confirmation
+# through the cutover, when the deploy was one-way and there was nothing behind
+# it to fall back to; that gate cost a manual step on every release to guard a
+# risk that ended when the cutover was verified.
 #
-# NOTE: GitHub only offers the Run workflow button for a `workflow_dispatch`
-# workflow that exists on the **default branch**. This file is on `main`, so the
-# button is there; a copy on a feature branch alone would not be dispatchable.
+# `workflow_dispatch` stays, because configuration lives in FastAPI Cloud rather
+# than in this repository: a `fastapi cloud env set` needs a redeploy to take
+# effect and produces no commit to trigger one.
 #
 # FastAPI Cloud has no preview or per-branch environments, so this deploys the
-# one production app that serves `api.dileepa.dev`. There is nothing behind it
-# to fall back to, so verify a build on the app's own `*.fastapicloud.dev` URL
-# before it becomes the live API. README "Deployment" has the full order.
+# one production app that serves `api.dileepa.dev`. README "Deployment" has the
+# full order.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
-    inputs:
-      confirm:
-        description: Type "deploy" to confirm
-        required: true
-        default: ""
+
+# One app, one environment: two deploys running at once race on the same target.
+# Queue rather than cancel — a half-written deploy is worse than a late one.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
 
 # The deploy authenticates to FastAPI Cloud with its own token; it needs no
 # write access to the repository itself.
@@ -29,7 +33,6 @@ jobs:
   deploy:
     name: Deploy to FastAPI Cloud
     runs-on: ubuntu-latest
-    if: inputs.confirm == 'deploy'
     # `production` is the only deployment environment this repository uses, and
     # the name is deliberate: GitHub groups the Deployments page by it, so a
     # second name would split one service's history across two headings.

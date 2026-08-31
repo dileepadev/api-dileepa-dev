@@ -152,9 +152,15 @@ Unreleased changes go here.
 - **Deployed on FastAPI Cloud**, replacing Vercel serverless. `pyproject.toml`
   declares the entrypoint under `[tool.fastapi]`;
   [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml) deploys with a
-  token on `workflow_dispatch` with a typed confirmation, so a deploy is a
-  decision rather than a side effect of a merge. The GitHub deployment
-  environment is named `production`, and that is the only environment name used.
+  token on every push to `main`, which is the release branch, and on
+  `workflow_dispatch` for the case a commit cannot cover — configuration lives
+  in FastAPI Cloud, so a `fastapi cloud env set` needs a redeploy and produces
+  nothing to trigger one. A `concurrency` group serialises deploys, because one
+  app and one environment means two runs would race on the same target. The
+  workflow carried a typed confirmation through the cutover, when the deploy was
+  one-way with nothing behind it; that gate is gone now the cutover is verified.
+  The GitHub deployment environment is named `production`, and that is the only
+  environment name used.
 - **`.github/agents/pr-preparer.agent.md`** — a GitHub Copilot custom agent that
   prepares and opens pull requests against whatever conventions a repository
   actually documents, refusing to open one that carries secrets, debris or
