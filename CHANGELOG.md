@@ -13,7 +13,7 @@ Changes are organized into the following categories:
 
 Unreleased changes go here.
 
-## [v2.0.0] - 2026-08-31
+## [v2.0.0] - 2026-09-01
 
 > [!IMPORTANT]
 >
