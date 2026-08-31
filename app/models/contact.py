@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pydantic import EmailStr, Field
 
-from app.models.common import ApiModel
+from app.models.common import ApiModel, TimestampedResource
 
 
 class ContactRequest(ApiModel):
@@ -18,3 +18,10 @@ class ContactResult(ApiModel):
     success: bool = True
     message: str = "Message sent."
     id: str | None = None
+
+
+class ContactMessage(TimestampedResource):
+    name: str
+    email: EmailStr
+    subject: str
+    message: str

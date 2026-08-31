@@ -1,13 +1,20 @@
-"""The six resources ported straight from v1.
+"""The profile resources.
 
 Field names and types match the existing documents exactly. The only additions
 are the platform-wide fields from `OrderedResource`, all optional with defaults,
 so these models read a v1 document without a migration having run first.
 
 `about` is a singleton: one document, no `order`, no list endpoint.
+
+`pillars` and `speaking_topics` are new in v2.0.0 and have no v1 shape to
+match. Both replace copy that was compiled into the website — the six cards in
+its About section and the talk themes on its speaker kit — so that editing
+either is a save in the admin rather than a deploy.
 """
 
 from __future__ import annotations
+
+from typing import Literal
 
 from pydantic import Field
 
@@ -68,6 +75,13 @@ class AboutBase(ApiModel):
     # than a structured place: it is a label on a photograph, not an address.
     location: str | None = None
     description: list[str] | None = None
+    # The two speaker biographies the media kit at /profile hands to an event
+    # organiser, verbatim and copyable. They are here rather than in a resource
+    # of their own because they are the same person this record already
+    # describes, said at two lengths — a name, a title and a location that
+    # disagreed with the bio beside them would be worse than either.
+    short_bio: str | None = None
+    full_bio: str | None = None
     status: str | None = None
     images: AboutImages
     links: AboutLinks
@@ -85,6 +99,8 @@ class AboutUpdate(ApiModel):
     tagline_description: str | None = None
     location: str | None = None
     description: list[str] | None = None
+    short_bio: str | None = None
+    full_bio: str | None = None
     status: str | None = None
     images: AboutImages | None = None
     links: AboutLinks | None = None
@@ -105,6 +121,11 @@ class About(TimestampedResource):
     # written before the field existed.
     location: str | None = None
     description: list[str] = Field(default_factory=list)
+    # Optional on the way out for the same reason `location` is: every record
+    # written before these existed has no value for either, and the site falls
+    # back to its own copy when they are absent.
+    short_bio: str | None = None
+    full_bio: str | None = None
     status: str | None = None
     images: AboutImages = Field(default_factory=AboutImages)
     links: AboutLinks = Field(default_factory=AboutLinks)
@@ -278,3 +299,91 @@ class Video(OrderedResource):
     link: str = ""
     thumbnail: str = ""
     description: str = ""
+
+
+# The icon a pillar card renders, named rather than drawn.
+#
+# A closed set, not free text, for two reasons: the admin renders it as a
+# select rather than a box you can typo into, and the website resolves each
+# name to an imported icon component — a name it does not know would render
+# nothing. Adding one means adding it here *and* to the site's map; the site
+# falls back to `cpu` so a mismatch is a wrong icon rather than a blank card.
+PillarIcon = Literal[
+    "cpu",
+    "code",
+    "mic",
+    "book",
+    "video",
+    "users",
+    "sparkles",
+    "rocket",
+    "terminal",
+    "pen",
+    "globe",
+    "graduation-cap",
+]
+
+
+class PillarBase(ApiModel):
+    """One card in the website's About section.
+
+    Six of them describe what Dileepa does — AI engineering, open source,
+    speaking, writing, videos, community. They were a constant in the site's
+    `lib/constants.ts` until v2.0.0, which meant rewording a card was a pull
+    request and a deploy.
+    """
+
+    title: str
+    description: str
+    icon: PillarIcon = "cpu"
+    order: int = 0
+    published: bool = True
+
+
+class PillarCreate(PillarBase):
+    pass
+
+
+class PillarUpdate(ApiModel):
+    title: str | None = None
+    description: str | None = None
+    icon: PillarIcon | None = None
+    order: int | None = None
+    published: bool | None = None
+
+
+class Pillar(OrderedResource):
+    title: str
+    description: str = ""
+    icon: PillarIcon = "cpu"
+
+
+class SpeakingTopicBase(ApiModel):
+    """One talk or workshop theme on the speaker kit at /profile.
+
+    The "sessions and talks" section an event organiser reads to see what
+    Dileepa presents on. Like `pillars`, this was site copy first; unlike
+    `pillars` it changes often, because the list follows whatever is actually
+    being delivered that season.
+    """
+
+    title: str
+    summary: str
+    order: int = 0
+    published: bool = True
+
+
+class SpeakingTopicCreate(SpeakingTopicBase):
+    pass
+
+
+class SpeakingTopicUpdate(ApiModel):
+    title: str | None = None
+    summary: str | None = None
+    order: int | None = None
+    published: bool | None = None
+
+
+class SpeakingTopic(OrderedResource):
+    title: str
+    summary: str = ""

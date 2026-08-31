@@ -70,6 +70,11 @@ TAGS_METADATA = [
     {"name": "tools", "description": "Tools and technologies."},
     {"name": "communities", "description": "Community involvement."},
     {"name": "videos", "description": "Video appearances."},
+    {"name": "pillars", "description": "The cards in the site's About section."},
+    {
+        "name": "speaking-topics",
+        "description": "Talk and workshop themes on the site's speaker kit.",
+    },
     {"name": "projects", "description": "Projects. New in v2.0.0."},
     {
         "name": "events",
@@ -254,6 +259,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(profile.tools_router)
     app.include_router(profile.communities_router)
     app.include_router(profile.videos_router)
+    app.include_router(profile.pillars_router)
+    app.include_router(profile.speaking_topics_router)
     app.include_router(projects.router)
     app.include_router(events.router)
     app.include_router(blogs.router)

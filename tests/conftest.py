@@ -65,6 +65,8 @@ COLLECTIONS = (
     "tools",
     "communities",
     "videos",
+    "pillars",
+    "speaking_topics",
     "blogs",
     "events",
     "projects",
@@ -74,6 +76,7 @@ COLLECTIONS = (
     "blog_reactions",
     "comments",
     "comment_reactions",
+    "contacts",
 )
 
 UNIQUE_FIELDS: dict[str, tuple[str, ...]] = {

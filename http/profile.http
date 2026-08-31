@@ -1,6 +1,7 @@
-# Profile — experiences, educations, tools, communities, videos.
+# Profile — experiences, educations, tools, communities, videos, pillars,
+# speaking topics.
 #
-# Five resources with no behaviour of their own, so they are one file, the same
+# Seven resources with no behaviour of their own, so they are one file, the same
 # way they are one module in app/routers/profile.py. Each block is identical:
 # public list, admin create, read one, update, reorder, delete. That uniformity
 # is the point — a resource that needed something different would have its own
@@ -319,6 +320,107 @@ Content-Type: application/json
 
 ### Delete.
 DELETE {{baseUrl}}/videos/{{videoId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= pillars =============================
+#
+# The six cards in the website's About section. `icon` is a closed set — see
+# `PillarIcon` in app/models/profile.py — so a name outside it is a 422.
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/pillars
+
+### Create.
+# @name createPillar
+POST {{baseUrl}}/pillars
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "AI engineering",
+  "description": "Building agentic systems, orchestrating LLM workflows, and designing evaluation pipelines for production applications.",
+  "icon": "cpu",
+  "order": 60,
+  "published": true
+}
+
+###
+
+@pillarId = {{createPillar.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/pillars/{{pillarId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/pillars/{{pillarId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "description": "Agentic systems, LLM orchestration, and evaluation pipelines." }
+
+### Reorder. The cards render in this order, highest first.
+PATCH {{baseUrl}}/pillars/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{pillarId}}", "order": 60 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/pillars/{{pillarId}}
+Authorization: Bearer {{accessToken}}
+
+# ============================= speaking topics =============================
+#
+# The "sessions and talks" section of the speaker kit at /profile. The two
+# biographies beside it are fields on the about record, not rows here.
+
+### List. Public callers see published records only.
+GET {{baseUrl}}/speaking-topics
+
+### Create.
+# @name createSpeakingTopic
+POST {{baseUrl}}/speaking-topics
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "title": "Building production AI agents & multi-agent frameworks",
+  "summary": "Architecting autonomous agent systems, multi-agent orchestration, tool routing, and designing evaluation loops that hold up under real-world traffic.",
+  "order": 40,
+  "published": true
+}
+
+###
+
+@speakingTopicId = {{createSpeakingTopic.response.body.$.id}}
+
+### Read one.
+GET {{baseUrl}}/speaking-topics/{{speakingTopicId}}
+
+### Update. Send only what changes.
+PATCH {{baseUrl}}/speaking-topics/{{speakingTopicId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{ "summary": "Orchestration, tool routing, and evaluation loops that survive real traffic." }
+
+### Reorder.
+PATCH {{baseUrl}}/speaking-topics/order
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "items": [
+    { "id": "{{speakingTopicId}}", "order": 40 }
+  ]
+}
+
+### Delete.
+DELETE {{baseUrl}}/speaking-topics/{{speakingTopicId}}
 Authorization: Bearer {{accessToken}}
 
 # ============================= failure cases =============================

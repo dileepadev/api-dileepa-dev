@@ -88,7 +88,7 @@ class TestRequestFilesExist:
     def test_there_is_one_per_router_module(self) -> None:
         # The mapping is deliberate: http/<name>.http tracks app/routers/<name>.py,
         # so "where do I add this request" never needs a decision. `crud.py` is
-        # the factory the five profile resources are built from, not a router.
+        # the factory the seven profile resources are built from, not a router.
         routers = {
             p.stem
             for p in (HTTP_DIR.parent / "app" / "routers").glob("*.py")

@@ -36,6 +36,10 @@ COLLECTIONS = {
     "tools": "tools",
     "communities": "communities",
     "videos": "videos",
+    # New in v2.0.0, so both are named the way v2 would name them rather than
+    # the way Mongoose would have.
+    "pillars": "pillars",
+    "speaking_topics": "speaking_topics",
     "blogs": "blogs",
     "events": "events",
     "projects": "projects",
@@ -50,6 +54,7 @@ COLLECTIONS = {
     "blog_reactions": "blog_reactions",
     "comments": "comments",
     "comment_reactions": "comment_reactions",
+    "contacts": "contacts",
 }
 
 # Indexes the API depends on. Created on startup and safe to re-run.
@@ -112,6 +117,7 @@ INDEXES: dict[str, list[tuple[list[tuple[str, int]], dict[str, Any]]]] = {
         ([("status", ASCENDING)], {"name": "status"}),
     ],
     "uploads": [([("publicId", ASCENDING)], {"unique": True, "name": "publicId_unique"})],
+    "contacts": [([("createdAt", ASCENDING)], {"name": "createdAt"})],
 }
 
 

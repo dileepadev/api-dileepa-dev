@@ -1,8 +1,9 @@
 """One CRUD router, built per resource.
 
-`experiences`, `educations`, `tools`, `communities` and `videos` differ only in
-their models. Writing five near-identical routers means five places to fix a
-pagination bug, so the shape is defined once here.
+`experiences`, `educations`, `tools`, `communities`, `videos`, `pillars` and
+`speaking_topics` differ only in their models. Writing seven near-identical
+routers means seven places to fix a pagination bug, so the shape is defined
+once here.
 
 The endpoint functions are declared with placeholder annotations and then have
 `__annotations__` replaced with the concrete models. FastAPI reads annotations
@@ -125,8 +126,8 @@ def crud_router(
     not only the list, so a single record is never returned half-built.
     """
     router = APIRouter(prefix=prefix, tags=[tag])
-    # `f"{label}s"` is right for four of the five resources and wrong for
-    # `community`. The summaries are published — they are what the reference
+    # `f"{label}s"` is right for six of the seven profile resources and wrong
+    # for `community`. The summaries are published — they are what the reference
     # and the admin's endpoint panel render — so the one exception says so
     # rather than shipping "List communitys".
     labels = plural or f"{label}s"

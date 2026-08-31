@@ -42,7 +42,7 @@ One stack. `app/` is the application; everything else is tests, operations scrip
 | `app/core/db.py` | The MongoDB client, collection names, and index creation |
 | `app/models/` | Pydantic request and response models, camelCase on the wire |
 | `app/repositories/` | `DocumentRepository`, with a Mongo and an in-memory implementation |
-| `app/routers/crud.py` | The CRUD router factory the five ported resources are built from |
+| `app/routers/crud.py` | The CRUD router factory the seven profile resources are built from |
 | `app/routers/` | One module per resource |
 | `app/services/` | Resend and Cloudinary, the two outbound integrations, plus `reactions.py` — the toggle rule posts and comments share |
 | `scripts/` | Migration and operations scripts. Every writer takes `--apply` |
