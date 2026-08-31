@@ -156,9 +156,9 @@ So the banner the application prints immediately below it is the one to read:
   api.dileepa.dev 2.0.0
 
   Environment  development
-  Database     cluster0.egeox0b.mongodb.net/development
+  Database     cluster0.example.mongodb.net/development
   Docs         enabled at /docs
-  Copy source  cluster0.egeox0b.mongodb.net/production
+  Copy source  cluster0.example.mongodb.net/production
 
   ENVIRONMENT is 'development', so this process is not
   connected to production. Any "production mode" line above it is
