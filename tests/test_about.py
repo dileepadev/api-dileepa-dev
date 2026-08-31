@@ -16,6 +16,11 @@ ABOUT: dict[str, Any] = {
     "tagline": "I build things and write about how they went.",
     "taglineDescription": "Mostly Python, mostly for people who have to run it.",
     "description": ["A paragraph.", "Another paragraph."],
+    "shortBio": "Dileepa Bandara builds agentic systems and the communities around them.",
+    "fullBio": (
+        "Dileepa Bandara is an AI systems engineer building agentic applications, "
+        "evaluation harnesses, and the developer communities around them."
+    ),
     "status": "Open to work",
     "images": {
         "bannerWebp": "https://res.cloudinary.com/x/banner.webp",
@@ -119,6 +124,18 @@ class TestExisting:
         assert body["tagline"] == ABOUT["tagline"]
         assert body["taglineDescription"] == ABOUT["taglineDescription"]
 
+    async def test_the_media_kit_reads_both_biographies(self, client: AsyncClient) -> None:
+        """The speaker kit at /profile copies these verbatim.
+
+        Two lengths rather than one, because a conference agenda and a social
+        announcement want different ones — and both from the same record the
+        page already reads for the name and title above them, so the bio can
+        never disagree with the person it is under.
+        """
+        body = (await client.get("/about")).json()
+        assert body["shortBio"] == ABOUT["shortBio"]
+        assert body["fullBio"] == ABOUT["fullBio"]
+
     async def test_the_portrait_is_offered_in_three_formats(self, client: AsyncClient) -> None:
         images = (await client.get("/about")).json()["images"]
         assert images["profileWebp"].endswith(".webp")
@@ -158,7 +175,7 @@ class TestLegacyRecord:
         legacy = {
             key: value
             for key, value in ABOUT.items()
-            if key not in {"taglineDescription", "images"}
+            if key not in {"taglineDescription", "shortBio", "fullBio", "images"}
         }
         legacy["images"] = {
             "bannerWebp": ABOUT["images"]["bannerWebp"],
@@ -171,6 +188,8 @@ class TestLegacyRecord:
         assert response.status_code == 200
         body = response.json()
         assert body["taglineDescription"] is None
+        assert body["shortBio"] is None
+        assert body["fullBio"] is None
         assert body["images"]["profileJpg"] is None
         # And the formats that predate the change are untouched.
         assert body["images"]["profileWebp"] == ABOUT["images"]["profileWebp"]

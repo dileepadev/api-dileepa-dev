@@ -36,6 +36,10 @@ COLLECTIONS = {
     "tools": "tools",
     "communities": "communities",
     "videos": "videos",
+    # New in v2.0.0, so both are named the way v2 would name them rather than
+    # the way Mongoose would have.
+    "pillars": "pillars",
+    "speaking_topics": "speaking_topics",
     "blogs": "blogs",
     "events": "events",
     "projects": "projects",

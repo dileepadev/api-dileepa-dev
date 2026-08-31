@@ -319,6 +319,8 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `GET /tools` | ✓ | CRUD | |
 | `GET /communities` | ✓ | CRUD | |
 | `GET /videos` | ✓ | CRUD | |
+| `GET /pillars` | ✓ | CRUD | **New in v2.0.0** — the six cards in the site's About section |
+| `GET /speaking-topics` | ✓ | CRUD | **New in v2.0.0** — the talk themes on the site's speaker kit |
 | `GET /projects` · `GET /projects/{slug}` | ✓ | CRUD | **New in v2.0.0** |
 | `GET /events` · `GET /events/{slug}` | ✓ | CRUD | **Reshaped in v2.0.0** — same path, new model |
 | `GET /blogs` · `GET /blogs/{slug}` | ✓ | CRUD | Reshaped |
@@ -361,7 +363,7 @@ user the copy should read through.
 
 Every collection also serves a single record at `GET /{resource}/{id}`. Where a
 resource carries a slug the same route accepts either, which is why the rows
-above name `{slug}` for projects, events and blogs and the five profile
+above name `{slug}` for projects, events and blogs and the seven profile
 collections take an id. `/about` is the exception in both directions: it is a
 singleton, so it has no id and no single-record route of its own.
 

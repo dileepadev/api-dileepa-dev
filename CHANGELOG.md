@@ -13,7 +13,7 @@ Changes are organized into the following categories:
 
 Unreleased changes go here.
 
-## [2.0.0] - 2026-08-27
+## [v2.0.0] - 2026-08-31
 
 > [!IMPORTANT]
 >
@@ -159,6 +159,22 @@ Unreleased changes go here.
   prepares and opens pull requests against whatever conventions a repository
   actually documents, refusing to open one that carries secrets, debris or
   failing checks. It never merges and never bypasses branch protection.
+- **`GET /pillars`** — the six cards in the website's About section (AI engineering, open source,
+  public speaking, technical writing, technical videos, community building), as an ordered,
+  publishable collection with full CRUD. They were a constant compiled into
+  `dileepa-dev/lib/constants.ts`, which made rewording a card a pull request and a deploy. `icon`
+  is a closed set rather than free text — the site resolves the name to an imported component, so
+  a name it does not know would render a card with no icon and nothing anywhere to say why.
+- **`GET /speaking-topics`** — the talk and workshop themes on the website's speaker kit at
+  `/profile`, same shape and same reasoning as `pillars`. Hyphenated on the wire, `speaking_topics`
+  in Mongo: a URL is not the place to read snake_case, and the collection sits beside `blog_views`
+  and `comment_reactions`.
+- **`shortBio` and `fullBio` on the about record.** The two pre-approved speaker biographies the
+  media kit hands an event organiser, at the two lengths an announcement and a conference agenda
+  want. They are fields on `about` rather than a resource of their own because they describe the
+  same person that record already names — a bio that disagreed with the title beside it would be
+  worse than either. Both optional on the way out, so a record written before they existed reads
+  as `null` rather than a `500`.
 
 #### Added: Security
 
@@ -351,7 +367,7 @@ scheduled for removal in a later version. The v1 paths listed above return
 successor, and `tests/test_openapi.py` fails if any operation is ever published
 with `deprecated: true`.
 
-## [1.2.1] - 2026-03-02
+## [v1.2.1] - 2026-03-02
 
 ### Fixed - v1.2.1
 
@@ -360,7 +376,7 @@ with `deprecated: true`.
 - Resolve 21 npm audit security vulnerabilities (including ReDoS and RCE risks) by adding safe `overrides` for transitive dependencies: `test-exclude`, `minimatch`, `multer`, `serialize-javascript`, and `ajv` in `package.json`. (refs #10)
 - Verify test suite pass rate remains 100% after dependency adjustments.
 
-## [1.2.0] - 2026-03-02
+## [v1.2.0] - 2026-03-02
 
 ### Added - v1.2.0
 
@@ -383,7 +399,7 @@ with `deprecated: true`.
 - Enforce stricter input validation and consistent error response formats.
 - Remove deprecated `baseUrl` option from `tsconfig.json` to prepare for TypeScript 7.0.
 
-## [1.1.0] - 2026-01-14
+## [v1.1.0] - 2026-01-14
 
 ### Added - v1.1.0
 
@@ -395,7 +411,7 @@ with `deprecated: true`.
 - Refactor the DTO (Data Transfer Object) structure to follow `camelCase` naming conventions for consistency with frontend standards.
 - Update MongoDB queries to return data ordered by date for improved relevance.
 
-## [1.0.0] - 2026-01-13
+## [v1.0.0] - 2026-01-13
 
 ### Added - v1.0.0
 
@@ -424,8 +440,8 @@ with `deprecated: true`.
 <!-- v0.0.1 -->
 
 [Unreleased]: https://github.com/dileepadev/api-dileepa-dev/branches
-[1.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.0.0
-[1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.1.0
-[1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.0
-[1.2.1]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/1.2.1
-[2.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/2.0.0
+[v2.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v2.0.0
+[v1.2.1]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v1.2.1
+[v1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v1.2.0
+[v1.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v1.1.0
+[v1.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v1.0.0

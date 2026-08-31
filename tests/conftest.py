@@ -65,6 +65,8 @@ COLLECTIONS = (
     "tools",
     "communities",
     "videos",
+    "pillars",
+    "speaking_topics",
     "blogs",
     "events",
     "projects",

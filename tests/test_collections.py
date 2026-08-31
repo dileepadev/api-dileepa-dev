@@ -1,7 +1,7 @@
 """Pagination, visibility, ordering and the error envelope.
 
 These behaviours come from the factory, so testing them on one resource tests
-them on all five. `test_openapi.py` asserts the five are actually identical.
+them on all seven. `test_openapi.py` asserts the seven are actually identical.
 """
 
 from __future__ import annotations

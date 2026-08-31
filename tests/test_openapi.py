@@ -15,7 +15,27 @@ from app.main import create_app
 
 Spec = dict[str, Any]
 
-RESOURCES = ["experiences", "educations", "tools", "communities", "videos"]
+RESOURCES = [
+    "experiences",
+    "educations",
+    "tools",
+    "communities",
+    "videos",
+    "pillars",
+    "speaking-topics",
+]
+
+# The path segment to the model name behind it. Only `speaking-topics` needs
+# more than a de-pluralisation, and that is the point of the table.
+SINGULAR = {
+    "experiences": "Experience",
+    "educations": "Education",
+    "tools": "Tool",
+    "communities": "Community",
+    "videos": "Video",
+    "pillars": "Pillar",
+    "speaking-topics": "SpeakingTopic",
+}
 
 
 @pytest.fixture(scope="module")
@@ -38,7 +58,7 @@ def test_metadata(spec: Spec) -> None:
 
 @pytest.mark.parametrize("resource", RESOURCES)
 def test_every_factory_built_resource_has_the_same_operations(spec: Spec, resource: str) -> None:
-    """The factory exists so these five cannot drift apart."""
+    """The factory exists so these cannot drift apart."""
     assert set(spec["paths"][f"/{resource}"]) == {"get", "post"}
     assert set(spec["paths"][f"/{resource}/{{identifier}}"]) == {"get", "patch", "delete"}
     assert set(spec["paths"][f"/{resource}/order"]) == {"patch"}
@@ -46,13 +66,7 @@ def test_every_factory_built_resource_has_the_same_operations(spec: Spec, resour
 
 @pytest.mark.parametrize("resource", RESOURCES)
 def test_request_and_response_models_are_named_not_inlined(spec: Spec, resource: str) -> None:
-    singular = {
-        "experiences": "Experience",
-        "educations": "Education",
-        "tools": "Tool",
-        "communities": "Community",
-        "videos": "Video",
-    }[resource]
+    singular = SINGULAR[resource]
     post = spec["paths"][f"/{resource}"]["post"]
     body = post["requestBody"]["content"]["application/json"]["schema"]["$ref"]
     assert body.endswith(f"/{singular}Create")
@@ -62,13 +76,7 @@ def test_request_and_response_models_are_named_not_inlined(spec: Spec, resource:
 
 @pytest.mark.parametrize("resource", RESOURCES)
 def test_lists_use_the_page_envelope(spec: Spec, resource: str) -> None:
-    singular = {
-        "experiences": "Experience",
-        "educations": "Education",
-        "tools": "Tool",
-        "communities": "Community",
-        "videos": "Video",
-    }[resource]
+    singular = SINGULAR[resource]
     schema = spec["paths"][f"/{resource}"]["get"]["responses"]["200"]["content"][
         "application/json"
     ]["schema"]["$ref"]
@@ -125,8 +133,39 @@ def test_the_v1_aliases_are_not_served(spec: Spec) -> None:
 
 
 def test_the_new_resources_are_present(spec: Spec) -> None:
-    for path in ("/projects", "/projects/{identifier}", "/events", "/events/{identifier}"):
+    for path in (
+        "/projects",
+        "/projects/{identifier}",
+        "/events",
+        "/events/{identifier}",
+        "/pillars",
+        "/pillars/{identifier}",
+        "/speaking-topics",
+        "/speaking-topics/{identifier}",
+    ):
         assert path in spec["paths"]
+
+
+def test_the_pillar_icon_is_a_closed_set(spec: Spec) -> None:
+    """A free-text icon would let the admin save a name the site cannot draw.
+
+    The enum is what makes the admin render a select, and what makes a typo a
+    422 rather than a card with no icon on the homepage.
+    """
+    icon = spec["components"]["schemas"]["PillarCreate"]["properties"]["icon"]
+    assert "cpu" in icon["enum"]
+    assert "users" in icon["enum"]
+
+
+def test_the_speaker_bios_are_on_the_about_record(spec: Spec) -> None:
+    """One request gets the media kit its name, its title and its bios.
+
+    They are camelCase on the wire like everything else, which is what the two
+    frontends read.
+    """
+    about = spec["components"]["schemas"]["About"]["properties"]
+    assert "shortBio" in about
+    assert "fullBio" in about
 
 
 def test_health_and_version_are_public(spec: Spec) -> None:
