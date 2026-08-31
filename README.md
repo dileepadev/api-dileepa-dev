@@ -422,16 +422,16 @@ production endpoint, and the health check is
 
 This repository does **not** use the GitHub integration. It deploys through
 [`.github/workflows/deploy.yml`](.github/workflows/deploy.yml), which uses a
-deploy token and runs on `workflow_dispatch` with a typed confirmation. A deploy
-stays a decision rather than a side effect of a merge, which is what the cutover
-needs.
+deploy token and runs on every push to `main`. `main` is the release branch, so
+a merge into it is a release and the deploy follows it rather than waiting on
+someone to press a button.
 
-> [!NOTE]
-> **A `workflow_dispatch` workflow only appears in the Actions UI once it is on
-> the default branch.** This workflow is on `main`, so the Run workflow button
-> is available. A copy living only on a feature branch is not dispatchable,
-> however green that branch is — deploy from the FastAPI Cloud VS Code
-> extension or a local `fastapi deploy` in that case.
+`workflow_dispatch` is kept for the redeploy a commit cannot trigger:
+application configuration lives in FastAPI Cloud, not in this repository, so a
+`fastapi cloud env set` takes effect only on the next deploy and leaves nothing
+here to push. A `concurrency` group serialises runs — there is one app and one
+environment, so two deploys at once would race on the same target, and a
+queued deploy is better than a half-written one.
 
 `FASTAPI_CLOUD_TOKEN` and `FASTAPI_CLOUD_APP_ID` come from
 `fastapi cloud setup-ci`, which writes both repository secrets. Pass

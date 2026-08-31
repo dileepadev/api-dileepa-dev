@@ -217,13 +217,19 @@ alias; the old paths return `404`.
 
 - [x] CI workflow — lint, format, types, tests, and the OpenAPI spec as an artifact
 - [x] Deploy workflow, manual (`workflow_dispatch`) until the cutover is observed
+- [x] **Deploy on push to `main` now the cutover is observed.** The manual gate and its typed
+      confirmation guarded a one-way deploy with no fallback; that risk ended when the cutover
+      was verified, and the gate was left costing a button press on every release.
+      `workflow_dispatch` stays for the redeploy no commit can trigger — configuration lives in
+      FastAPI Cloud, so a `fastapi cloud env set` takes effect only on the next deploy. A
+      `concurrency` group serialises runs, since one app and one environment means two would
+      race on the same target
 - [x] Declare the entrypoint in `pyproject.toml` (`[tool.fastapi] entrypoint`)
 
 > [!NOTE]
-> **The deploy workflow is dispatchable now that it is on `main`.** GitHub only shows the Run
-> workflow button for a `workflow_dispatch` workflow that exists on the default branch, which this
-> one does. Deploying from the FastAPI Cloud VS Code extension or a local `fastapi deploy` also
-> works and bypasses Actions entirely, needing only `fastapi cloud login`.
+> Deploying from the FastAPI Cloud VS Code extension or a local `fastapi deploy` bypasses Actions
+> entirely and needs only `fastapi cloud login` — but it writes no deployment record, so the
+> Deployments page will not show it.
 
 - [x] Run `fastapi cloud setup-ci` to mint the deploy token and write both repository secrets
 - [x] Deploy with `fastapi deploy` — live, and now served at `https://api.dileepa.dev`.
