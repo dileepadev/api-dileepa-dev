@@ -279,9 +279,9 @@ alias; the old paths return `404`.
 - [x] `VERSIONING.md` review — the release steps still said to bump `package.json`, which this
       repository no longer ships. Corrected to `pyproject.toml`, which is what `GET /version`
       actually reads
-- [ ] Tag `v2.0.0`. `feat/v2.0.0`, `dev` and `main` already hold identical trees, so the
+- [x] Tag `v2.0.0`. `feat/v2.0.0`, `dev` and `main` already hold identical trees, so the
       promotion is a tag rather than a merge
-- [ ] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13) — **last, and not
+- [x] Close [issue #13](https://github.com/dileepadev/api-dileepa-dev/issues/13) — **last, and not
       before.** Not when this branch merges, not when the first deploy succeeds, and not when the
       domain resolves. It closes when `api.dileepa.dev` has served production traffic from FastAPI
       Cloud through a rollback window with the Vercel deployment retired, and every box in
