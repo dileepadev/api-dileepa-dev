@@ -20,7 +20,7 @@ from tests.types import Headers, Repos
 
 class TestContact:
     async def test_sends_and_reports_the_message_id(
-        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch, repositories: Repos
     ) -> None:
         sent: dict[str, Any] = {}
 
@@ -47,6 +47,40 @@ class TestContact:
         assert response.json()["id"] == "msg_123"
         assert sent["reply_to"] == "visitor@example.com"
         assert sent["subject"] == "[Contact form] Hello"
+
+        saved = await repositories["contacts"].find_one({"email": "visitor@example.com"})
+        assert saved is not None
+        assert saved["name"] == "A Visitor"
+        assert saved["subject"] == "Hello"
+        assert saved["message"] == "Line one\nLine two"
+
+    async def test_persists_submission_to_database(
+        self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch, repositories: Repos
+    ) -> None:
+        monkeypatch.setattr("resend.Emails.send", lambda params: {"id": "msg_db_test"})
+        monkeypatch.setenv("RESEND_API_KEY", "test-key")
+        from app.core.config import get_settings
+
+        get_settings.cache_clear()
+
+        response = await client.post(
+            "/contact",
+            json={
+                "name": "Jane Doe",
+                "email": "jane@example.com",
+                "subject": "General Inquiry",
+                "message": "Testing database persistence of contact submissions.",
+            },
+        )
+        assert response.status_code == 200
+        saved = await repositories["contacts"].find_one({"email": "jane@example.com"})
+        assert saved is not None
+        assert saved["name"] == "Jane Doe"
+        assert saved["email"] == "jane@example.com"
+        assert saved["subject"] == "General Inquiry"
+        assert saved["message"] == "Testing database persistence of contact submissions."
+        assert "createdAt" in saved
+        assert "updatedAt" in saved
 
     async def test_html_in_a_message_is_escaped(
         self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
