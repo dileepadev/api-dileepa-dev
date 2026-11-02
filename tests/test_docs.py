@@ -42,7 +42,7 @@ class TestRoot:
         assert response.status_code == 200
         body = response.json()
         assert body["name"] == "api.dileepa.dev"
-        assert body["version"] == "2.0.0"
+        assert body["version"] == "2.1.0"
         assert body["website"] == "https://dileepa.dev"
 
     async def test_points_at_the_docs_in_development(self, client: AsyncClient) -> None:

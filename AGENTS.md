@@ -21,7 +21,7 @@ That was an architectural migration, not a framework swap. **The NestJS applicat
 `src/`, `package.json`, `nest-cli.json` and the whole Node toolchain were removed once the
 migration was complete. There is one stack here now, and it is Python.
 
-Version `2.0.0`.
+Version `2.1.0`.
 
 [TODO.md](TODO.md) holds this repo's slice. Issue **#13** holds the full scope. The
 cross-repository roadmap lives in `dileepadev/TODO.md`.
@@ -131,7 +131,7 @@ references it is describing history, not something in this repository.
   protected; never commit to them directly.
 - Commits: [COMMIT_MESSAGE_GUIDELINES.md](COMMIT_MESSAGE_GUIDELINES.md) — if the work traces to
   a GitHub issue, reference it (`fixes #12`, `refs #12`); don't invent an issue number if none
-  was given. v2.0.0 work traces to `refs #13`.
+  was given. v2.0.0 work traces to `refs #13`; v2.1.0 work traces to `refs #29`.
 - PRs: [PULL_REQUEST_GUIDELINES.md](PULL_REQUEST_GUIDELINES.md)
 - Versioning: [VERSIONING.md](VERSIONING.md) — SemVer.
 

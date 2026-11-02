@@ -153,7 +153,7 @@ So the banner the application prints immediately below it is the one to read:
 
 ```text
 ──────────────────────────────────────────────────────────────────
-  api.dileepa.dev 2.0.0
+  api.dileepa.dev 2.1.0
 
   Environment  development
   Database     cluster0.example.mongodb.net/development
@@ -340,6 +340,7 @@ return `{ "items": [...], "total": n, "limit": n, "offset": n }`; errors return
 | `GET /api-links` | — | ✓ | The endpoint catalogue the admin renders. **New in v2.0.0** |
 | `GET /health` | ✓ | — | 503 when MongoDB is unreachable |
 | `GET /version` | ✓ | — | |
+| `GET /stats` | ✓ | — | Counts of everything published, one number per public collection. **New in v2.1.0** |
 | `GET /` | ✓ | — | What this service is, and where the docs are |
 | `GET /docs` | ✓ | — | The API reference. **Development only** |
 | `GET /status` | — | ✓ | Environment, version and database — the admin header's status badge |
@@ -461,7 +462,7 @@ Verified against the live domain:
 | Check | Result |
 | --- | --- |
 | `GET /health` | `{"status":"ok","checks":{"database":"up"}}` |
-| `GET /version` | `2.0.0`, `production`, `fastapi` |
+| `GET /version` | `2.1.0`, `production`, `fastapi` |
 | Security headers | All eight present |
 | `/docs`, `/api-json`, `/openapi.json`, `/redoc` | `404` — unregistered in production |
 | CORS | An unlisted origin receives no `Access-Control-Allow-Origin` |
