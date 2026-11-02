@@ -45,6 +45,7 @@ from app.routers import (
     meta,
     profile,
     projects,
+    stats,
 )
 from app.routers import uploads as uploads_router
 from app.routers.meta import app_version
@@ -264,6 +265,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(projects.router)
     app.include_router(events.router)
     app.include_router(blogs.router)
+    app.include_router(stats.router)
     # Two routers, two audiences: the public one hangs off /blogs/{slug}/comments
     # and cannot serialise an email; the admin one requires a token on every
     # route, list included. See app/routers/comments.py.

@@ -1,0 +1,6 @@
+# Stats — how much is published. Public, no token.
+
+### Counts of everything published.
+# One count per public collection. Drafts and hidden comments are never counted.
+# Cached for a minute.
+GET {{baseUrl}}/stats

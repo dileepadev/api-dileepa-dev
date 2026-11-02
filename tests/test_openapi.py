@@ -46,13 +46,13 @@ def spec() -> Spec:
 def test_version_endpoint_reports_the_package_version() -> None:
     from app.routers.meta import app_version
 
-    assert app_version() == "2.0.0"
+    assert app_version() == "2.1.0"
 
 
 def test_metadata(spec: Spec) -> None:
     assert spec["info"]["title"] == "api.dileepa.dev"
     # Pinned so a release that forgets to bump pyproject.toml fails here.
-    assert spec["info"]["version"] == "2.0.0"
+    assert spec["info"]["version"] == "2.1.0"
     assert spec["info"]["license"]["name"] == "MIT"
 
 
