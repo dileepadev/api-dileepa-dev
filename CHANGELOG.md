@@ -13,6 +13,22 @@ Changes are organized into the following categories:
 
 Unreleased changes go here.
 
+## [v2.1.0] - 2026-11-03
+
+> [!NOTE]
+> Aligns the version with the rest of the platform, which ships the monochrome brand as v2.1.0,
+> and adds one read-only route. Nothing existing changes, and there are no new dependencies.
+
+### Added
+
+- `GET /stats`: a public count of everything published: posts, projects, events, videos, experience,
+  education, tools, communities, pillars, speaking topics and visible comments, with a one-minute
+  `Cache-Control`. Drafts and hidden comments are never counted (refs #29).
+
+### Changed
+
+- Set the version to `2.1.0`, so `/version` and the OpenAPI document report it (refs #29).
+
 ## [v2.0.0] - 2026-09-01
 
 > [!IMPORTANT]
@@ -440,12 +456,14 @@ with `deprecated: true`.
 
 <!-- e.g., -->
 <!-- Unreleased -->
+<!-- v2.1.0 -->
 <!-- v2.0.0 -->
 <!-- v1.1.0 -->
 <!-- v1.0.0 -->
 <!-- v0.0.1 -->
 
 [Unreleased]: https://github.com/dileepadev/api-dileepa-dev/branches
+[v2.1.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v2.1.0
 [v2.0.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v2.0.0
 [v1.2.1]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v1.2.1
 [v1.2.0]: https://github.com/dileepadev/api-dileepa-dev/releases/tag/v1.2.0
